@@ -245,8 +245,22 @@ function getProgramAndDay(){
 }
 function tempoToSec(tempo){ return String(tempo).split('-').map((n)=>Number(n)||0).reduce((a,b)=>a+b,0); }
 function fmtTimerSec(sec){ const s=Math.max(0,Math.floor(sec)); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-function startWorkoutTimer(sec, mode){
-  workoutTimer={running:true,mode,left:sec,total:sec,startedAt:Date.now(),paused:false};
+function mentorSpeak(text){
+  if(!S.sounds.enabled || !('speechSynthesis' in window)) return;
+  try{
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='pt-BR';
+    u.rate=1;
+    u.pitch=1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch{}
+}
+function startWorkoutTimer(sec, mode, opts={}){
+  const onEnd=opts.onEnd||null;
+  workoutTimer={running:true,mode,left:sec,total:sec,startedAt:Date.now(),paused:false,warned10:false};
+  beep(mode==='exec'?980:620,.08,.1);
+  mentorSpeak(mode==='exec' ? 'Iniciando execução da série. Controle total.' : 'Iniciando descanso. Respire e prepare a próxima série.');
   clearInterval(workoutInterval);
   workoutInterval=setInterval(()=>{
     if(!workoutTimer.running||workoutTimer.paused) return;
@@ -254,20 +268,43 @@ function startWorkoutTimer(sec, mode){
     const el=$('#workTimerBig'); const state=$('#workTimerState');
     if(el) el.textContent=fmtTimerSec(workoutTimer.left);
     if(state) state.textContent=workoutTimer.mode==='exec'?'EXECUÇÃO':'DESCANSO';
+
+    if(workoutTimer.left===10 && !workoutTimer.warned10){
+      workoutTimer.warned10=true;
+      beep(1400,.06,.11);
+      mentorSpeak('Faltam dez segundos.');
+      showToast('⚠️ 10 segundos restantes');
+    }
+
     if(workoutTimer.left<=0){
       workoutTimer.running=false;
       clearInterval(workoutInterval);
-      beep(1300,.06,.1);
+      beep(mode==='exec'?1300:1100,.09,.12);
+      mentorSpeak(mode==='exec' ? 'Execução finalizada. Inicie descanso.' : 'Descanso finalizado. Próxima série.');
       showToast(mode==='exec'?'Execução finalizada':'Descanso finalizado');
+      if(typeof onEnd==='function') onEnd();
     }
   }, 1000);
 }
 function pauseWorkoutTimer(){
   if(!workoutTimer.running) return;
-  if(workoutTimer.paused){ workoutTimer.paused=false; workoutTimer.startedAt = Date.now() - (workoutTimer.total-workoutTimer.left)*1000; }
-  else workoutTimer.paused=true;
+  if(workoutTimer.paused){
+    workoutTimer.paused=false;
+    workoutTimer.startedAt = Date.now() - (workoutTimer.total-workoutTimer.left)*1000;
+    mentorSpeak('Timer retomado.');
+  } else {
+    workoutTimer.paused=true;
+    mentorSpeak('Timer pausado.');
+  }
 }
-function stopWorkoutTimer(){ workoutTimer.running=false; clearInterval(workoutInterval); workoutTimer.left=0; const el=$('#workTimerBig'); if(el) el.textContent='00:00'; }
+function stopWorkoutTimer(){
+  workoutTimer.running=false;
+  clearInterval(workoutInterval);
+  workoutTimer.left=0;
+  const el=$('#workTimerBig');
+  if(el) el.textContent='00:00';
+  mentorSpeak('Timer encerrado.');
+}
 function currentProgramExercise(){
   const {exercises}=getProgramAndDay();
   const ses=S.training.program.session;
@@ -326,6 +363,7 @@ function viewTreino(){
       <button class='btn' id='btnPauseWorkTimer'>PAUSAR/RETOMAR</button>
       <button class='btn danger' id='btnStopWorkTimer'>PARAR TIMER</button>
       <button class='btn primary' id='btnConcluirSerie'>CONCLUIR SÉRIE</button>
+      <button class='btn' id='btnAutoSerie'>GUIA AUTO (EXEC→REST)</button>
     </div>
   </div>
 
@@ -341,8 +379,9 @@ function viewTreino(){
   $('#btnStartProgram').onclick=()=>{ S.training.program.session={active:true,exIndex:0,setNo:1}; saveState(); showToast('Sessão iniciada'); render(); };
   $('#btnResetProgram').onclick=()=>{ S.training.program.session={active:false,exIndex:0,setNo:1}; stopWorkoutTimer(); saveState(); render(); };
 
-  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); startWorkoutTimer(Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)),'exec'); };
+  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec'); };
   $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); startWorkoutTimer(ex.rest,'rest'); };
+  $('#btnAutoSerie').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec',{onEnd:()=>startWorkoutTimer(ex.rest,'rest')}); };
   $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
   $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
   $('#btnConcluirSerie').onclick=()=>{
@@ -372,11 +411,11 @@ function viewEstudo(){ const k=todayKey(), mins=S.study.history.filter(x=>x.date
   $('#btnStartTimer').onclick=()=>startTimer(Number($('#studyDur').value)*60,$('#studyTopic').value);
   $('#btnPauseTimer').onclick=togglePause; $('#btnAbortTimer').onclick=abortTimer; updateTimerUI();
 }
-function startTimer(totalSec,topic){ if(timer.running) return; timer={running:true,total:totalSec,left:totalSec,topic,startedAt:Date.now(),paused:false}; clearInterval(timerInterval); timerInterval=setInterval(tickTimer,250); beep(1200,.06,.1); updateTimerUI(); }
-function tickTimer(){ if(!timer.running||timer.paused) return; timer.left=Math.max(0,timer.total-Math.floor((Date.now()-timer.startedAt)/1000)); if(timer.left<=0) finishTimer(); updateTimerUI(); }
+function startTimer(totalSec,topic){ if(timer.running) return; timer={running:true,total:totalSec,left:totalSec,startedAt:Date.now(),paused:false,topic,warned10:false}; clearInterval(timerInterval); timerInterval=setInterval(tickTimer,250); beep(1200,.06,.1); mentorSpeak('Bloco de estudo iniciado. Foco total.'); updateTimerUI(); }
+function tickTimer(){ if(!timer.running||timer.paused) return; timer.left=Math.max(0,timer.total-Math.floor((Date.now()-timer.startedAt)/1000)); if(timer.left===10 && !timer.warned10){ timer.warned10=true; beep(1400,.06,.11); mentorSpeak('Faltam dez segundos no estudo.'); } if(timer.left<=0) finishTimer(); updateTimerUI(); }
 function togglePause(){ if(!timer.running) return; if(timer.paused){timer.paused=false; timer.startedAt=Date.now()-(timer.total-timer.left)*1000; beep(900,.05,.07);} else {timer.paused=true;beep(500,.05,.06);} updateTimerUI(); }
-function abortTimer(){ if(!timer.running) return; timer.running=false; clearInterval(timerInterval); adjustIntegrity(-3); addXP(3,'study'); showToast('Abandonou'); timer.left=0; updateTimerUI(); }
-function finishTimer(){ timer.running=false; clearInterval(timerInterval); const m=Math.round(timer.total/60), k=todayKey(); S.study.history.push({date:k,minutes:m,topic:timer.topic}); setLastAction({type:'studyAdd',date:k,minutes:m,topic:timer.topic}); addXP(35+Math.round(m*0.8),'study'); adjustIntegrity(+2); saveState(); timer.left=0; showToast('Bloco concluído'); render(); }
+function abortTimer(){ if(!timer.running) return; timer.running=false; clearInterval(timerInterval); adjustIntegrity(-3); addXP(3,'study'); mentorSpeak('Bloco abortado. Reorganize e tente novamente.'); showToast('Abandonou'); timer.left=0; updateTimerUI(); }
+function finishTimer(){ timer.running=false; clearInterval(timerInterval); const m=Math.round(timer.total/60), k=todayKey(); S.study.history.push({date:k,minutes:m,topic:timer.topic}); setLastAction({type:'studyAdd',date:k,minutes:m,topic:timer.topic}); addXP(35+Math.round(m*0.8),'study'); adjustIntegrity(+2); mentorSpeak('Bloco concluído. Excelente execução.'); saveState(); timer.left=0; showToast('Bloco concluído'); render(); }
 function updateTimerUI(){ const big=$('#timerBig'), small=$('#timerSmall'), st=$('#timerState'); if(!big) return; big.textContent=fmtMMSS(timer.left||0); st.textContent=timer.running?(timer.paused?'PAUSADO':'RODANDO'):'PARADO'; small.textContent=timer.running?(timer.paused?'Pausado':`Foco: ${timer.topic}`):'Pronto.'; }
 
 function locatePlan(pos){ let p=pos; while(true){ for(const b of BIBLE_PLAN){ if(p<b.chapters) return {book:b.book,chapter:p+1}; p-=b.chapters; } } }
