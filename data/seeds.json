@@ -1,6 +1,6 @@
 {
   "areas": ["identidade", "shape", "beleza", "financeiro", "academico", "espiritual", "social", "internet", "intelectual", "mental", "organizacao"],
-  "foods": ["arroz-cozido", "feijao-cozido", "frango-peito", "ovo"],
-  "trainingModes": ["casa", "academia"],
-  "studySubjects": ["Anatomia", "Bioquímica", "Fisiologia"]
+  "configDefaults": ["objective", "weight", "bf", "activity", "strictMode", "scanlines", "sound", "bgMusic", "volume"],
+  "tasks": "customTasksByDate",
+  "music": "storedAsDataUrlOffline"
 }

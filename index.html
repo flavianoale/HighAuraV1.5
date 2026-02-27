@@ -40,6 +40,10 @@
         </div>
       </div>
       <div class="card">
+        <h3>Tarefas de hoje</h3>
+        <ul id="todayTasksList"></ul>
+      </div>
+      <div class="card">
         <h3>Status por área</h3>
         <div id="areasCompact"></div>
       </div>
@@ -96,18 +100,61 @@
 
     <section id="hub-config" class="hub">
       <div class="card">
-        <h2>Config</h2>
+        <h2>Config Geral</h2>
+        <label>Objetivo
+          <select id="goalSelect"><option>Cutting</option><option>Recomp</option><option>Bulking</option></select>
+        </label>
+        <label>Peso (kg)<input id="weightInput" type="number" min="40" max="200" step="0.1" /></label>
+        <label>BF (%)<input id="bfInput" type="number" min="5" max="50" step="0.1" /></label>
+        <label>Atividade
+          <select id="activitySelect"><option>Baixa</option><option>Média</option><option>Alta</option></select>
+        </label>
         <label>Perfil
           <select id="routineProfileSelect"><option>Interior</option><option>Cidade</option></select>
         </label>
         <label><input type="checkbox" id="strictModeToggle" /> Modo estrito</label>
-        <label><input type="checkbox" id="scanlineToggle" checked /> Scanlines</label>
+        <label><input type="checkbox" id="scanlineToggle" checked /> CRT / Scanlines</label>
         <label><input type="checkbox" id="soundToggle" checked /> Sons</label>
+        <label><input type="checkbox" id="bgMusicToggle" checked /> Música de fundo ativa</label>
+        <label>Volume <input id="volumeRange" type="range" min="0" max="1" step="0.05" /></label>
       </div>
+
       <div class="card">
         <h3>Horários</h3>
         <div id="scheduleEditor"></div>
-        <button id="saveScheduleBtn" class="btn primary">Salvar</button>
+        <button id="saveScheduleBtn" class="btn primary">Salvar horários</button>
+      </div>
+
+      <div class="card">
+        <h3>Tarefa do dia com horário</h3>
+        <label>Tarefa <input id="taskTitleInput" type="text" placeholder="Ex: Revisar bioquímica" /></label>
+        <label>Horário <input id="taskTimeInput" type="time" /></label>
+        <label>Área
+          <select id="taskAreaSelect"></select>
+        </label>
+        <button id="addTaskBtn" class="btn primary">Adicionar tarefa</button>
+        <ul id="configTasksList"></ul>
+      </div>
+
+      <div class="card">
+        <h3>Música</h3>
+        <p>Selecione MP3/M4A local (fica salvo offline).</p>
+        <input id="musicFileInput" type="file" accept="audio/*" />
+        <div class="row-wrap">
+          <button id="playMusicBtn" class="btn">Play</button>
+          <button id="stopMusicBtn" class="btn">Stop</button>
+          <button id="deleteMusicBtn" class="btn warn">Apagar música</button>
+        </div>
+        <p id="musicStatusText"></p>
+      </div>
+
+      <div class="card">
+        <h3>Backup</h3>
+        <div class="row-wrap">
+          <button id="exportBackupBtn" class="btn">Exportar JSON</button>
+          <input id="importBackupInput" type="file" accept="application/json" />
+          <button id="resetAllBtn" class="btn warn">Reset total</button>
+        </div>
       </div>
     </section>
   </main>
