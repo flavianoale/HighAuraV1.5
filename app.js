@@ -25,6 +25,92 @@ const MEALS = {
 const HOME_WORKOUT = { Peito:['Flexão','Flexão inclinada','Supino halter'], Costas:['Barra fixa','Remada halter'], Pernas:['Agachamento','Avanço','RDL'], Ombro:['Desenvolvimento','Elevação lateral'], Core:['Prancha','Abdominal'] };
 const GYM_WORKOUT = { Peito:['Supino reto','Supino inclinado'], Costas:['Puxada','Remada baixa'], Pernas:['Agachamento','Leg press'], Ombro:['Desenvolvimento','Face pull'], Core:['Prancha','Ab máquina'] };
 
+
+const TRAINING_PROGRAMS = {
+  home: {
+    label:'Plano Casa (PUSH/PULL/LEGS/UPPER)',
+    split:['PUSH','PULL','LEGS','UPPER'],
+    weekly:'Seg Push • Ter Pull • Qui Legs • Sex Upper',
+    periodization:'Sem 1-3 base (RPE 7.5-8.5) • Sem 4 intensificação (RPE 9) • Sem 5 deload (50%) • Sem 6-8 pesado',
+    days:{
+      PUSH:[
+        {name:'Supino halteres no chão',sets:4,reps:'6-8',rpe:'8',tempo:'3-1-1',rest:150,tip:'Escápulas retraídas e cotovelo 45°.'},
+        {name:'Supino inclinado improvisado',sets:3,reps:'8-10',rpe:'8',tempo:'3-1-1',rest:120,tip:'Alongamento máximo do peitoral.'},
+        {name:'Desenvolvimento halteres',sets:3,reps:'6-8',rpe:'8',tempo:'2-1-1',rest:120,tip:'Sem arquear lombar.'},
+        {name:'Elevação lateral',sets:4,reps:'12-15',rpe:'9',tempo:'2-1-2',rest:90,tip:'Última série com parciais.'},
+        {name:'Tríceps francês',sets:3,reps:'10-12',rpe:'8.5',tempo:'3-1-1',rest:90,tip:'Descida controlada.'}
+      ],
+      PULL:[
+        {name:'Barra fixa',sets:4,reps:'6-10',rpe:'8',tempo:'2-0-3',rest:180,tip:'Se >10 reps, adicionar carga.'},
+        {name:'Remada curvada halteres',sets:4,reps:'8-10',rpe:'8',tempo:'3-1-1',rest:120,tip:'Alongar dorsal.'},
+        {name:'Remada unilateral',sets:3,reps:'10-12',rpe:'9',tempo:'2-1-2',rest:90,tip:'Sem girar tronco.'},
+        {name:'Rosca alternada',sets:3,reps:'8-10',rpe:'8',tempo:'3-1-1',rest:90,tip:'Sem balançar corpo.'},
+        {name:'Rosca inclinada',sets:3,reps:'10-12',rpe:'9',tempo:'3-1-2',rest:90,tip:'Última série com LLP.'}
+      ],
+      LEGS:[
+        {name:'Agachamento goblet',sets:4,reps:'8-10',rpe:'8',tempo:'3-1-1',rest:150,tip:'Desça profundo.'},
+        {name:'Afundo búlgaro',sets:3,reps:'8-10/ perna',rpe:'9',tempo:'2-1-2',rest:120,tip:'Controle máximo.'},
+        {name:'RDL com halteres',sets:4,reps:'8-10',rpe:'8',tempo:'3-1-1',rest:120,tip:'Alongar posterior.'},
+        {name:'Panturrilha',sets:4,reps:'12-15',rpe:'9',tempo:'1-2-1',rest:90,tip:'Pausa no alongamento.'}
+      ],
+      UPPER:[
+        {name:'Supino',sets:3,reps:'5-6',rpe:'8',tempo:'3-1-1',rest:120,tip:'Intensidade alta, volume menor.'},
+        {name:'Barra fixa',sets:3,reps:'6-8',rpe:'8',tempo:'2-0-3',rest:180,tip:'Cadência estrita.'},
+        {name:'Elevação lateral',sets:3,reps:'15',rpe:'9',tempo:'2-1-2',rest:60,tip:'Queima controlada.'},
+        {name:'Rosca',sets:3,reps:'8',rpe:'8',tempo:'3-1-1',rest:90,tip:'Sem roubar.'},
+        {name:'Tríceps',sets:3,reps:'10',rpe:'8',tempo:'2-1-2',rest:90,tip:'Amplitude completa.'}
+      ]
+    }
+  },
+  gym: {
+    label:'Plano Academia PRO Natural',
+    split:['PUSH_PESADO','PULL_PESADO','LEGS_PESADO','UPPER_HIPER','LOWER_HIPER'],
+    weekly:'Push • Pull • Legs • Descanso • Upper • Lower',
+    periodization:'Sem 1-3 base • Sem 4 intensificação • Sem 5 deload • Sem 6-8 pesado',
+    days:{
+      PUSH_PESADO:[
+        {name:'Supino barra',sets:4,reps:'4-6',rpe:'8',tempo:'3-1-1',rest:180,tip:'Base de força.'},
+        {name:'Supino inclinado halter',sets:3,reps:'6-8',rpe:'8',tempo:'3-1-1',rest:120,tip:'Peitoral alto.'},
+        {name:'Crucifixo máquina',sets:3,reps:'10-12',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Alongar e contrair.'},
+        {name:'Desenvolvimento máquina',sets:3,reps:'6-8',rpe:'8',tempo:'2-1-1',rest:120,tip:'Controle tronco.'},
+        {name:'Elevação lateral',sets:4,reps:'12-15',rpe:'9',tempo:'2-1-2',rest:60,tip:'Sem trapacear.'},
+        {name:'Tríceps corda',sets:3,reps:'10-12',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Extensão total.'}
+      ],
+      PULL_PESADO:[
+        {name:'Barra fixa',sets:4,reps:'6-8',rpe:'8',tempo:'2-0-3',rest:180,tip:'Amplitude completa.'},
+        {name:'Remada barra',sets:4,reps:'6-8',rpe:'8',tempo:'3-1-1',rest:150,tip:'Coluna firme.'},
+        {name:'Remada máquina',sets:3,reps:'8-10',rpe:'8',tempo:'2-1-2',rest:120,tip:'Escápula ativa.'},
+        {name:'Pulldown',sets:3,reps:'10-12',rpe:'8.5',tempo:'2-1-3',rest:90,tip:'Última com LLP.'},
+        {name:'Rosca barra',sets:3,reps:'6-8',rpe:'8',tempo:'3-1-1',rest:120,tip:'Sem balanço.'},
+        {name:'Rosca inclinada',sets:3,reps:'10-12',rpe:'9',tempo:'3-1-2',rest:90,tip:'Última com LLP.'}
+      ],
+      LEGS_PESADO:[
+        {name:'Agachamento',sets:4,reps:'4-6',rpe:'8',tempo:'3-1-1',rest:180,tip:'Profundidade e técnica.'},
+        {name:'Leg press',sets:3,reps:'8',rpe:'8',tempo:'2-1-2',rest:120,tip:'Controle joelho.'},
+        {name:'RDL',sets:4,reps:'6-8',rpe:'8',tempo:'3-1-1',rest:150,tip:'Posterior forte.'},
+        {name:'Flexora',sets:3,reps:'10',rpe:'8.5',tempo:'2-1-3',rest:90,tip:'Última com LLP.'},
+        {name:'Panturrilha',sets:4,reps:'12-15',rpe:'9',tempo:'1-2-1',rest:90,tip:'Pausa alongada.'}
+      ],
+      UPPER_HIPER:[
+        {name:'Supino inclinado',sets:3,reps:'8-10',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Hipertrofia limpa.'},
+        {name:'Puxada',sets:3,reps:'10',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Costas cheias.'},
+        {name:'Remada',sets:3,reps:'12',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Controle total.'},
+        {name:'Elevação lateral',sets:4,reps:'15',rpe:'9',tempo:'2-1-2',rest:60,tip:'Queima.'},
+        {name:'Bíceps',sets:3,reps:'12',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Pico de contração.'},
+        {name:'Tríceps',sets:3,reps:'10',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Amplitude completa.'}
+      ],
+      LOWER_HIPER:[
+        {name:'Hack',sets:4,reps:'8-10',rpe:'8.5',tempo:'2-1-2',rest:120,tip:'Quadríceps alvo.'},
+        {name:'Extensora',sets:3,reps:'12',rpe:'9',tempo:'2-1-2',rest:90,tip:'Última com LLP.'},
+        {name:'RDL',sets:3,reps:'10',rpe:'8.5',tempo:'3-1-1',rest:120,tip:'Posterior alongado.'},
+        {name:'Flexora',sets:3,reps:'12',rpe:'8.5',tempo:'2-1-2',rest:90,tip:'Controle excêntrico.'},
+        {name:'Panturrilha sentado',sets:4,reps:'15',rpe:'9',tempo:'1-2-1',rest:90,tip:'Pausa embaixo.'}
+      ]
+    }
+  }
+};
+
+
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
@@ -50,7 +136,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta'},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[]}, study:{history:[]},
+    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null}}, study:{history:[]},
     diet:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -65,13 +151,15 @@ let activeTab = 'DASH';
 let audioCtx, musicAudio;
 let timer = {running:false, total:0, left:0, startedAt:0, paused:false, topic:''};
 let timerInterval;
+let workoutTimer = {running:false, mode:'idle', left:0, total:0, startedAt:0, paused:false};
+let workoutInterval;
 
 const $ = (q)=>document.querySelector(q);
 const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -149,11 +237,134 @@ function viewDieta(){ Object.assign(S.targets, calcTargetsAuto()); saveState(); 
   $('#btnDietUndo').onclick=undoLastAction; $('#btnDietReset').onclick=()=>{ d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
 }
 
-function viewTreino(){ const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Treino</div><div class='small'>Ambiente: ${env==='home'?'Casa':'Academia'} • sets hoje: ${today.length}</div></div><button class='btn' id='btnEnv'>TROCAR</button></div><div class='grid'><div class='g6'><label>Grupo</label><select id='selGroup'>${Object.keys(lib).map(g=>`<option>${g}</option>`).join('')}</select></div><div class='g6'><label>Exercício</label><select id='selEx'></select></div><div class='g6'><label>Reps</label><select id='selReps'><option>5</option><option>8</option><option>10</option><option>12</option><option>15</option></select></div><div class='g6'><label>Carga</label><select id='selLoad'><option>0</option><option>5</option><option>10</option><option>15</option><option>20</option><option>30</option><option>40</option></select></div><div class='g12'><button class='btn primary wide' id='btnAddSet'>REGISTRAR 1 SET</button></div></div></div><div class='card'><h2>Sets de hoje</h2><div class='list'>${today.length?today.map((x,i)=>`<div class='item'><div><div class='name'>${x.group} • ${x.exercise}</div><div class='meta'>${x.sets[0].reps} reps • ${x.sets[0].load}kg</div></div><span class='badge'>#${i+1}</span></div>`).join(''):'<div class="hint">Nenhum set.</div>'}</div><div class='row'><button class='btn' id='btnTrainUndo'>DESFAZER</button><button class='btn danger' id='btnTrainReset'>RESET HOJE</button></div></div>`;
+function getProgramAndDay(){
+  const track=S.training.program.track||'home';
+  const prog=TRAINING_PROGRAMS[track];
+  const dayKey=S.training.program.dayKey && prog.days[S.training.program.dayKey] ? S.training.program.dayKey : prog.split[0];
+  return {track,prog,dayKey,exercises:prog.days[dayKey]||[]};
+}
+function tempoToSec(tempo){ return String(tempo).split('-').map((n)=>Number(n)||0).reduce((a,b)=>a+b,0); }
+function fmtTimerSec(sec){ const s=Math.max(0,Math.floor(sec)); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function startWorkoutTimer(sec, mode){
+  workoutTimer={running:true,mode,left:sec,total:sec,startedAt:Date.now(),paused:false};
+  clearInterval(workoutInterval);
+  workoutInterval=setInterval(()=>{
+    if(!workoutTimer.running||workoutTimer.paused) return;
+    workoutTimer.left=Math.max(0, workoutTimer.total - Math.floor((Date.now()-workoutTimer.startedAt)/1000));
+    const el=$('#workTimerBig'); const state=$('#workTimerState');
+    if(el) el.textContent=fmtTimerSec(workoutTimer.left);
+    if(state) state.textContent=workoutTimer.mode==='exec'?'EXECUÇÃO':'DESCANSO';
+    if(workoutTimer.left<=0){
+      workoutTimer.running=false;
+      clearInterval(workoutInterval);
+      beep(1300,.06,.1);
+      showToast(mode==='exec'?'Execução finalizada':'Descanso finalizado');
+    }
+  }, 1000);
+}
+function pauseWorkoutTimer(){
+  if(!workoutTimer.running) return;
+  if(workoutTimer.paused){ workoutTimer.paused=false; workoutTimer.startedAt = Date.now() - (workoutTimer.total-workoutTimer.left)*1000; }
+  else workoutTimer.paused=true;
+}
+function stopWorkoutTimer(){ workoutTimer.running=false; clearInterval(workoutInterval); workoutTimer.left=0; const el=$('#workTimerBig'); if(el) el.textContent='00:00'; }
+function currentProgramExercise(){
+  const {exercises}=getProgramAndDay();
+  const ses=S.training.program.session;
+  if(!ses || !ses.active) return null;
+  const ex=exercises[ses.exIndex];
+  if(!ex) return null;
+  return ex;
+}
+function advanceProgramSet(){
+  const ses=S.training.program.session; if(!ses||!ses.active) return;
+  const {exercises}=getProgramAndDay();
+  const ex=exercises[ses.exIndex];
+  if(!ex) return;
+  if(ses.setNo < ex.sets){ ses.setNo += 1; }
+  else { ses.exIndex += 1; ses.setNo = 1; }
+  if(ses.exIndex >= exercises.length){
+    ses.active=false;
+    addXP(120,'train');
+    adjustIntegrity(+3);
+    showToast('Treino programado concluído');
+  }
+  saveState();
+}
+function viewTreino(){
+  const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k);
+  const {track,prog,dayKey,exercises}=getProgramAndDay();
+  if(!S.training.program.session) S.training.program.session={active:false,exIndex:0,setNo:1};
+  const session=S.training.program.session;
+  const exNow=currentProgramExercise();
+  const week=S.training.program.week||1;
+  const phaseTxt = week<=3 ? 'Base (RPE 7.5–8.5)' : week===4 ? 'Intensificação (RPE 9)' : week===5 ? 'Deload (50%)' : 'Bloco pesado';
+
+  view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Treino Programado</div><div class='small'>${prog.label} • ${prog.weekly}</div></div><button class='btn' id='btnEnv'>TROCAR AMBIENTE</button></div>
+  <div class='grid'>
+    <div class='g6'><label>Plano</label><select id='trainTrack'><option value='home'>Casa</option><option value='gym'>Academia</option></select></div>
+    <div class='g6'><label>Dia do treino</label><select id='trainDay'>${prog.split.map((d)=>`<option value='${d}'>${d}</option>`).join('')}</select></div>
+    <div class='g6'><label>Semana do bloco (1-8)</label><input id='trainWeek' type='range' min='1' max='8' step='1' value='${week}'></div>
+    <div class='g6'><label>Fase atual</label><input value='${phaseTxt}' disabled></div>
+  </div>
+  <div class='hint'>Periodização: ${prog.periodization}</div>
+  <div class='row'><button class='btn primary' id='btnStartProgram'>INICIAR SESSÃO PROGRAMADA</button><button class='btn' id='btnResetProgram'>RESETAR SESSÃO</button></div>
+  </div>
+
+  <div class='card'><h2>Plano do dia (${dayKey})</h2><div class='list'>${exercises.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.sets}x${e.reps} • RPE ${e.rpe} • tempo ${e.tempo} • descanso ${Math.round(e.rest/60)}-${e.rest%60?':30':''} min<br>${e.tip}</div></div><span class='badge'>${e.sets} sets</span></div>`).join('')}</div></div>
+
+  <div class='card'><h2>Runner da sessão</h2>
+    <div class='kpi'><div><div class='big'>${session.active && exNow ? exNow.name : 'Sessão parada'}</div><div class='small'>${session.active && exNow ? `Exercício ${session.exIndex+1}/${exercises.length} • Série ${session.setNo}/${exNow.sets}` : 'Inicie para executar com timers em segundos.'}</div></div><span class='badge' id='workTimerState'>${workoutTimer.mode==='rest'?'DESCANSO':'EXECUÇÃO'}</span></div>
+    <div class='big' id='workTimerBig'>${fmtTimerSec(workoutTimer.left||0)}</div>
+    <div class='grid'>
+      <div class='g6'><label>Reps realizadas</label><input id='doneReps' type='number' min='1' max='40' value='${exNow?String(exNow.reps).split('-')[0]:'8'}'></div>
+      <div class='g6'><label>Carga (kg)</label><input id='doneLoad' type='number' min='0' max='300' step='0.5' value='0'></div>
+    </div>
+    <div class='row'>
+      <button class='btn primary' id='btnExecTimer'>INICIAR EXECUÇÃO</button>
+      <button class='btn' id='btnRestTimer'>INICIAR DESCANSO</button>
+      <button class='btn' id='btnPauseWorkTimer'>PAUSAR/RETOMAR</button>
+      <button class='btn danger' id='btnStopWorkTimer'>PARAR TIMER</button>
+      <button class='btn primary' id='btnConcluirSerie'>CONCLUIR SÉRIE</button>
+    </div>
+  </div>
+
+  <div class='card'><h2>Registro rápido manual</h2><div class='kpi'><div><div class='big'>Treino manual</div><div class='small'>Ambiente: ${env==='home'?'Casa':'Academia'} • sets hoje: ${today.length}</div></div></div><div class='grid'><div class='g6'><label>Grupo</label><select id='selGroup'>${Object.keys(lib).map(g=>`<option>${g}</option>`).join('')}</select></div><div class='g6'><label>Exercício</label><select id='selEx'></select></div><div class='g6'><label>Reps</label><select id='selReps'><option>5</option><option>8</option><option>10</option><option>12</option><option>15</option></select></div><div class='g6'><label>Carga</label><select id='selLoad'><option>0</option><option>5</option><option>10</option><option>15</option><option>20</option><option>30</option><option>40</option></select></div><div class='g12'><button class='btn primary wide' id='btnAddSet'>REGISTRAR 1 SET</button></div></div></div>
+
+  <div class='card'><h2>Sets de hoje</h2><div class='list'>${today.length?today.map((x,i)=>`<div class='item'><div><div class='name'>${x.group} • ${x.exercise}</div><div class='meta'>${x.sets[0].reps} reps • ${x.sets[0].load}kg</div></div><span class='badge'>#${i+1}</span></div>`).join(''):'<div class="hint">Nenhum set.</div>'}</div><div class='row'><button class='btn' id='btnTrainUndo'>DESFAZER</button><button class='btn danger' id='btnTrainReset'>RESET HOJE</button></div></div>`;
+
+  $('#trainTrack').value=track;
+  $('#trainDay').value=dayKey;
+  $('#trainTrack').onchange=(e)=>{ S.training.program.track=e.target.value; const np=TRAINING_PROGRAMS[e.target.value]; S.training.program.dayKey=np.split[0]; S.training.environment=e.target.value; saveState(); render(); };
+  $('#trainDay').onchange=(e)=>{ S.training.program.dayKey=e.target.value; saveState(); render(); };
+  $('#trainWeek').oninput=(e)=>{ S.training.program.week=Number(e.target.value); saveState(); render(); };
+  $('#btnStartProgram').onclick=()=>{ S.training.program.session={active:true,exIndex:0,setNo:1}; saveState(); showToast('Sessão iniciada'); render(); };
+  $('#btnResetProgram').onclick=()=>{ S.training.program.session={active:false,exIndex:0,setNo:1}; stopWorkoutTimer(); saveState(); render(); };
+
+  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); startWorkoutTimer(Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)),'exec'); };
+  $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); startWorkoutTimer(ex.rest,'rest'); };
+  $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
+  $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
+  $('#btnConcluirSerie').onclick=()=>{
+    const ex=currentProgramExercise();
+    if(!ex) return showToast('Sem sessão ativa');
+    const reps=Number($('#doneReps').value||0);
+    const load=Number($('#doneLoad').value||0);
+    const entry={date:k, group:dayKey, exercise:ex.name, sets:[{reps,load}], note:`RPE ${ex.rpe} • tempo ${ex.tempo}`};
+    S.training.history.push(entry);
+    setLastAction({type:'trainSet',entry});
+    addXP(24,'train');
+    adjustIntegrity(+1);
+    advanceProgramSet();
+    saveState();
+    render();
+  };
+
   const sg=$('#selGroup'), sx=$('#selEx'); const refresh=()=>{sx.innerHTML=(lib[sg.value]||[]).map(e=>`<option>${e}</option>`).join('')}; sg.onchange=refresh; refresh();
   $('#btnAddSet').onclick=()=>{ const entry={date:k,group:sg.value,exercise:sx.value,sets:[{reps:Number($('#selReps').value),load:Number($('#selLoad').value)}]}; S.training.history.push(entry); setLastAction({type:'trainSet',entry}); addXP(20,'train'); adjustIntegrity(+1); saveState(); render(); };
-  $('#btnEnv').onclick=()=>{S.training.environment=S.training.environment==='home'?'gym':'home'; saveState(); render();};
-  $('#btnTrainUndo').onclick=undoLastAction; $('#btnTrainReset').onclick=()=>{S.training.history=S.training.history.filter(x=>x.date!==k); adjustIntegrity(-4); saveState(); render();};
+  $('#btnEnv').onclick=()=>{S.training.environment=S.training.environment==='home'?'gym':'home'; S.training.program.track=S.training.environment; saveState(); render();};
+  $('#btnTrainUndo').onclick=undoLastAction;
+  $('#btnTrainReset').onclick=()=>{S.training.history=S.training.history.filter(x=>x.date!==k); adjustIntegrity(-4); saveState(); render();};
 }
 
 function fmtMMSS(sec){ return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`; }
