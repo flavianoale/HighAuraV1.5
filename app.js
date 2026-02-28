@@ -446,7 +446,14 @@ const VoiceEngine = {
     SUB_PRIORITY:['Peito superior está atrasado. Hoje é prioridade.','Foco total nesse ângulo.','Constrói onde falta.'],
     EXCESS_WARNING:['Volume alto acumulado. Controle a execução.','Sem forçar além do necessário.'],
     PERFORMANCE_ALERT:['Performance caiu nas últimas semanas.','Foco na consistência.','Sem ego.'],
-    WEAKPOINT_FOCUS:['Esse é seu ponto fraco.','Construa largura.','Ombro lateral define seu shape.']
+    WEAKPOINT_FOCUS:['Esse é seu ponto fraco.','Construa largura.','Ombro lateral define seu shape.'],
+    POST_VALIDATE:['Disciplina executada.','Você fez o que precisava ser feito.','Consistência acima da motivação.'],
+    POST_IDENTITY:['Você está construindo padrão.','Isso já não é esforço. É identidade.','Homens disciplinados vencem no longo prazo.'],
+    POST_PROGRESS:['Evolução registrada.','Progresso mensurável.','Hoje você ficou mais forte.'],
+    POST_PR:['Novo recorde.','Seu limite mudou.','Você não é mais o mesmo.'],
+    POST_FATIGUE:['Recuperação agora é estratégica.','Sono e nutrição definem o próximo treino.'],
+    POST_WEAKPOINT:['Você atacou seu ponto fraco.','O shape está sendo construído.'],
+    POST_FUTURE:['Recupere bem. O próximo passo já está definido.']
   },
   MuscleContextLayer:{chest:['Abre o peito.','Controle no alongamento.'],back:['Cotovelo para o quadril.','Dorsal contrai.'],delts:['Não rouba.','Lento na descida.'],quads:['Desce profundo.','Joelho estável.'],hamstrings:['Quadril para trás.','Alongamento máximo.'],calves:['Segura dois segundos.','Completo embaixo.'],core:['Costelas para baixo.','Contração total.']},
   pick(list, seed='x'){ if(!Array.isArray(list)||!list.length) return ''; const i=Math.abs(String(seed).split('').reduce((a,c)=>a+c.charCodeAt(0),0))%list.length; return list[i]; },
@@ -456,7 +463,21 @@ const VoiceEngine = {
   preSet(ex,ctx={}){ this.dispatch(VOICE_STATES.PRE_SET,{...ctx,exerciseName:ex.name,exerciseType:ex.type,muscleId:ex.primary_muscle_id}); },
   eccentric(ctx={}){ this.dispatch(VOICE_STATES.ECCENTRIC,ctx); }, pause(ctx={}){ this.dispatch(VOICE_STATES.PAUSE,ctx); }, concentric(ctx={}){ this.dispatch(VOICE_STATES.CONCENTRIC,ctx); },
   restStart(ctx={}){ this.dispatch(VOICE_STATES.REST_START,ctx); }, restEnd(ctx={}){ this.dispatch(VOICE_STATES.REST_END,ctx); }, lastSet(ctx={}){ this.dispatch(VOICE_STATES.LAST_SET_ALERT,ctx); },
-  fatigueWarning(ctx={}){ this.dispatch(VOICE_STATES.FATIGUE_WARNING,ctx); }, prDetected(ctx={}){ this.dispatch(VOICE_STATES.PR_DETECTED,ctx); }, workoutComplete(ctx={}){ this.dispatch(VOICE_STATES.WORKOUT_COMPLETE,ctx); }
+  fatigueWarning(ctx={}){ this.dispatch(VOICE_STATES.FATIGUE_WARNING,ctx); }, prDetected(ctx={}){ this.dispatch(VOICE_STATES.PR_DETECTED,ctx); }, workoutComplete(ctx={}){ this.dispatch(VOICE_STATES.WORKOUT_COMPLETE,ctx); },
+  postWorkoutCoach(input={}){
+    if(!input.workout_completed) return;
+    const seq=[];
+    seq.push(this.pick(this.ScriptLibrary.POST_VALIDATE,'val'));
+    if(input.new_pr) seq.push(this.pick(this.ScriptLibrary.POST_PR,'pr'));
+    if((input.volume_vs_last_week_percent||0)>0) seq.push(this.pick(this.ScriptLibrary.POST_PROGRESS,'vol'));
+    if((input.consistency_streak_days||0)>=7) seq.push(this.pick(this.ScriptLibrary.POST_IDENTITY,'id'));
+    const weakIds=(S.profile?.weakPoints||[]).map(mapWeakPointToMuscleId).filter(Boolean);
+    if((input.target_muscles_trained||[]).some(m=>weakIds.includes(m))) seq.push(this.pick(this.ScriptLibrary.POST_WEAKPOINT,'weak'));
+    if((input.fatigue_score||0)>70) seq.push(this.pick(this.ScriptLibrary.POST_FATIGUE,'fat'));
+    seq.push(this.pick(this.ScriptLibrary.POST_FUTURE,'future'));
+    const phrase=seq.filter(Boolean).join(' ');
+    if(phrase) mentorSpeak(phrase);
+  }
 };
 
 function cadenceStartPhase(sec, label, onEnd){
@@ -593,6 +614,39 @@ function currentProgramExercise(){
   if(!ex) return null;
   return ex;
 }
+
+function weeklyTrainingSets(offsetWeeks=0){
+  const now=new Date();
+  const d=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day=d.getDay();
+  const diff=(day+6)%7;
+  d.setDate(d.getDate()-diff - offsetWeeks*7);
+  const start=new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const end=new Date(start); end.setDate(end.getDate()+7);
+  return (S.training.history||[]).filter(x=>{
+    const t=new Date(x.date).getTime();
+    return t>=start.getTime() && t<end.getTime();
+  }).length;
+}
+function buildPostWorkoutCoachingInputs(){
+  const ses=S.training.program.session||{};
+  const duration_minutes=Math.max(1, Math.round(((Date.now()-(ses.startedAt||Date.now()))/60000)));
+  const thisWeek=weeklyTrainingSets(0);
+  const lastWeek=weeklyTrainingSets(1);
+  const volume_vs_last_week_percent = lastWeek>0 ? Number((((thisWeek-lastWeek)/lastWeek)*100).toFixed(1)) : (thisWeek>0?100:0);
+  const fatigue_score=Math.max(0, Math.min(100, trainingAnalytics().fatigue||0));
+  const k=todayKey();
+  const target_muscles_trained=[...new Set((S.training.history||[]).filter(x=>x.date===k).map(x=>{const ex=getExerciseDefByName(x.exercise||'');return ex?.primary_muscle_id||'';}).filter(Boolean))];
+  return {
+    workout_completed:true,
+    duration_minutes,
+    volume_vs_last_week_percent,
+    new_pr:!!ses.prHit,
+    consistency_streak_days:Number(S.rpg.streak||0),
+    fatigue_score,
+    target_muscles_trained
+  };
+}
 function advanceProgramSet(){
   const ses=S.training.program.session; if(!ses||!ses.active) return;
   const {exercises}=getProgramAndDay();
@@ -605,7 +659,9 @@ function advanceProgramSet(){
     addXP(120,'train');
     adjustIntegrity(+3);
     showToast('Treino programado concluído');
-    VoiceEngine.workoutComplete({});
+    const coachInput=buildPostWorkoutCoachingInputs();
+    VoiceEngine.workoutComplete(coachInput);
+    VoiceEngine.postWorkoutCoach(coachInput);
   }
   saveState();
 }
@@ -783,8 +839,8 @@ function viewTreino(){
   $('#trainTrack').onchange=(e)=>{ S.training.program.track=e.target.value; const np=TRAINING_PROGRAMS[e.target.value]; S.training.program.dayKey=np.split[0]; S.training.environment=e.target.value; saveState(); render(); };
   $('#trainDay').onchange=(e)=>{ S.training.program.dayKey=e.target.value; saveState(); render(); };
   $('#trainWeek').oninput=(e)=>{ S.training.program.week=Number(e.target.value); saveState(); render(); };
-  $('#btnStartProgram').onclick=()=>{ S.training.program.session={active:true,exIndex:0,setNo:1}; saveState(); showToast('Sessão iniciada'); render(); };
-  $('#btnResetProgram').onclick=()=>{ S.training.program.session={active:false,exIndex:0,setNo:1}; stopWorkoutTimer(); saveState(); render(); };
+  $('#btnStartProgram').onclick=()=>{ S.training.program.session={active:true,exIndex:0,setNo:1,startedAt:Date.now(),prHit:false}; saveState(); showToast('Sessão iniciada'); render(); };
+  $('#btnResetProgram').onclick=()=>{ S.training.program.session={active:false,exIndex:0,setNo:1,startedAt:null,prHit:false}; stopWorkoutTimer(); saveState(); render(); };
   const detDeload=$('#btnDetApplyDeload');
   if(detDeload) detDeload.onclick=()=>{ S.training.program.week=5; exercises.forEach(e=>{ e.sets=Math.max(1, Math.round(e.sets*0.65)); e.rpe='6'; }); showToast('Deload aplicado: volume 0.65x e RPE 6'); saveState(); render(); };
 
@@ -841,6 +897,7 @@ function viewTreino(){
     const current1RM = Number(S.training.oneRMByExercise?.[exDef.id]||0);
     if(newEstimated1RM > current1RM){
       S.training.oneRMByExercise[exDef.id]=newEstimated1RM;
+      S.training.program.session={...(S.training.program.session||{}), prHit:true};
       VoiceEngine.prDetected({exerciseName:ex.name,rpe:Number(ex.rpe)||8});
     }
     const met=calcSetDeterministicMetrics(perf, exDef);
