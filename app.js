@@ -117,6 +117,15 @@ const TAB_DEFS = [
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
 
+const CHANGE_CHOICES = [
+  {id:'study', title:'Estudar', tab:'ESTUDO', desc:'Foco total em estudo'},
+  {id:'work', title:'Trabalhar', tab:'OPS', desc:'Executar trabalho/projeto'},
+  {id:'train', title:'Treinar', tab:'TREINO', desc:'Sessão física completa'},
+  {id:'plan', title:'Planejar', tab:'REL', desc:'Planejamento e revisão'},
+  {id:'discipline', title:'Protocolo', tab:'PROTO', desc:'Rotina e disciplina'},
+  {id:'tasks', title:'Tarefas', tab:'TASKS', desc:'Atacar pendências com prazo'}
+];
+
 const idb = {
   db:null,
   async open(){ if(this.db) return this.db; return new Promise((res,rej)=>{ const r=indexedDB.open('ascensao_os_db',2); r.onupgradeneeded=()=>{const db=r.result; if(!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');}; r.onsuccess=()=>{this.db=r.result;res(this.db)}; r.onerror=()=>rej(r.error);}); },
@@ -143,6 +152,7 @@ function defaultState(){
     social:{history:[]}, ops:{history:[]}, finance:{history:[]},
     diary:{history:[]}, streakLog:{},
     ui:{drawerOpen:true, dopamineFx:true, attrs:{forca:55,vitalidade:52,foco:48,carisma:45,disciplina:50,sabedoria:47}},
+    modeChange:{enabled:false, durationMin:45, active:null},
     features:{
       mentorVoice:true, beeps:true, vibrateFx:true, auto10sWarn:true, autoWindowRedirect:true,
       strictNavigation:true, dopaminePopups:true, comboDecay:true, workoutAutoFlow:true,
@@ -165,7 +175,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
@@ -239,6 +249,26 @@ const hmToMin=(hm)=>{const [h,m]=hm.split(':').map(Number);return h*60+m;};
 const nowMin=()=>{const d=new Date(); return d.getHours()*60+d.getMinutes();};
 function currentWindow(){ const w=S.windows,n=nowMin(); const T=(k)=>hmToMin(w[k]); const order=[ {id:'wake',name:'Rotina Matinal',start:T('wake'),end:T('morningEnd'),tab:'PROTO'}, {id:'study',name:'Estudo',start:T('studyStart'),end:T('studyEnd'),tab:'ESTUDO'}, {id:'work',name:'Projetos',start:T('workStart'),end:T('workEnd'),tab:'OPS'}, {id:'train',name:'Treino',start:T('trainStart'),end:T('trainEnd'),tab:'TREINO'}, {id:'night',name:'Noite',start:T('nightStart'),end:T('sleep'),tab:'BIBLIA'}, {id:'sleep',name:'Dormir',start:T('sleep'),end:1440,tab:'DASH'} ]; for(const it of order){ if(n>=it.start && n<it.end) return it; } return {id:'late',name:'Fora da janela',start:0,end:T('wake'),tab:'DASH'}; }
 function timeLeftInWindow(win){ const left=Math.max(0, win.end-nowMin()); return `${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}h`; }
+function modeChangeLeftSec(){
+  const a=S.modeChange?.active;
+  if(!a?.endsAt) return 0;
+  return Math.max(0, Math.floor((a.endsAt - Date.now())/1000));
+}
+function ensureModeChangeValidity(){
+  if(S.modeChange?.active && modeChangeLeftSec()<=0){
+    const prev=S.modeChange.active?.title || 'bloco';
+    S.modeChange.active=null;
+    saveState();
+    showToast(`Modo change finalizado: ${prev}`);
+  }
+}
+function currentMissionWindow(){
+  ensureModeChangeValidity();
+  if(S.modeChange?.enabled && S.modeChange?.active && modeChangeLeftSec()>0){
+    return {id:'mode-change', name:`Modo Change: ${S.modeChange.active.title}`, start:0, end:nowMin()+Math.ceil(modeChangeLeftSec()/60), tab:S.modeChange.active.tab};
+  }
+  return currentWindow();
+}
 function campaignDay(){ const s=new Date(S.campaignStart), n=new Date(); return Math.floor((Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())-Date.UTC(s.getFullYear(),s.getMonth(),s.getDate()))/86400000)+1; }
 function phaseForDay(day){ if(day<=14) return {id:1,name:'Pressão',mult:1}; if(day<=45) return {id:2,name:'Consistência',mult:.8}; if(day<=90) return {id:3,name:'Autonomia',mult:.6}; return {id:4,name:'Ferramenta',mult:.4}; }
 function xpForLevel(lvl){ return Math.floor(150*(lvl-1)*(lvl-1)+100*(lvl-1)); }
@@ -264,24 +294,42 @@ function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada p
 }catch{ showToast('Falhou desfazer'); }}
 
 function applyTheme(){ document.body.classList.toggle('crt', !!S.theme.crt); }
-function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentWindow(); $('#missionLine').innerHTML=`MISSÃO DO MOMENTO: <b>${win.name}</b> • fecha em <b>${timeLeftInWindow(win)}</b>`; }
+function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentMissionWindow(); const left = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); $('#missionLine').innerHTML=`MISSÃO DO MOMENTO: <b>${win.name}</b> • fecha em <b>${left}</b>`; }
 
-function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode && featureOn('strictNavigation')){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; beep(760,.03,.05); microPulse(b); render(); }; tabs.appendChild(b);} }
+function renderTabs(){ tabs.innerHTML=''; const win=currentMissionWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode && featureOn('strictNavigation')){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; beep(760,.03,.05); microPulse(b); render(); }; tabs.appendChild(b);} }
 
-function pressurePanelHTML(){ const win=currentWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${timeLeftInWindow(win)}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
+function pressurePanelHTML(){ const win=currentMissionWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; const left = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${left}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
 
 function attrsPanelHTML(){ const map=S.ui.attrs||{}; const labels={forca:'Força',vitalidade:'Vitalidade',foco:'Foco',carisma:'Carisma',disciplina:'Disciplina',sabedoria:'Sabedoria'}; return `<div class='grid'>${Object.entries(labels).map(([k,l])=>`<div class='card g4 attr-card'><div class='kpi'><div><div class='name'>${l}</div><div class='small'>Atributo global</div></div><span class='badge'>${map[k]||0}</span></div><div class='progress'><div style='width:${Math.max(0,Math.min(100,map[k]||0))}%'></div></div><div class='row'><button class='btn ghost' data-attr='${k}' data-delta='-5'>-5</button><button class='btn' data-attr='${k}' data-delta='5'>+5</button></div></div>`).join('')}</div>`; }
 
-function viewHUD(){ const day=campaignDay(), ph=phaseForDay(day), prog=todayProgress(); const win=currentWindow(); const xpNext=xpForLevel(S.rpg.level+1), xpThis=xpForLevel(S.rpg.level), lvlPct=Math.max(0,Math.min(100,Math.round((S.rpg.xp-xpThis)/(xpNext-xpThis)*100))); const tasks=(S.tasks.byDate[todayKey()]||[]).sort((a,b)=>a.time.localeCompare(b.time));
-  view.innerHTML=`<div class="card"><div class="kpi"><div><div class="big">MISSÃO ATIVA: ${win.name}</div><div class="small">Janela fecha em <b>${timeLeftInWindow(win)}</b> • Fase ${ph.id}/4: ${ph.name} • Dia ${day}/90</div></div><button class="btn primary" id="btnExec">EXECUTAR AGORA</button></div><div class="progress"><div style="width:${prog.pct}%"></div></div><div class="hint">Progresso do dia ${prog.pct}% • mínimo: 3 pilares</div></div>
+function modeChangeCardHTML(){ const active=S.modeChange?.active; const left=modeChangeLeftSec(); return `<div class='card'><div class='kpi'><div><div class='big'>Modo Change</div><div class='small'>Escolha livre de missão por tempo fechado.</div></div><span class='badge'>${S.modeChange?.enabled?'ATIVO':'OFF'}</span></div>${active && left>0 ? `<div class='item'><div><div class='name'>Em andamento: ${active.title}</div><div class='meta'>${fmtTimerSec(left)} restantes • trava em ${active.tab}</div></div><button class='btn danger' id='btnModeChangeStop'>ENCERRAR</button></div>`:''}<div class='grid'>${CHANGE_CHOICES.map(c=>`<div class='g6'><button class='btn wide ${active?.id===c.id?'primary':'ghost'}' data-mode-choice='${c.id}'><b>${c.title}</b><div class='hint'>${c.desc}</div></button></div>`).join('')}</div></div>`; }
+
+function viewHUD(){ const day=campaignDay(), ph=phaseForDay(day), prog=todayProgress(); const win=currentMissionWindow(); const winLeft = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); const xpNext=xpForLevel(S.rpg.level+1), xpThis=xpForLevel(S.rpg.level), lvlPct=Math.max(0,Math.min(100,Math.round((S.rpg.xp-xpThis)/(xpNext-xpThis)*100))); const tasks=(S.tasks.byDate[todayKey()]||[]).sort((a,b)=>a.time.localeCompare(b.time));
+  view.innerHTML=`<div class="card"><div class="kpi"><div><div class="big">MISSÃO ATIVA: ${win.name}</div><div class="small">Janela fecha em <b>${winLeft}</b> • Fase ${ph.id}/4: ${ph.name} • Dia ${day}/90</div></div><button class="btn primary" id="btnExec">EXECUTAR AGORA</button></div><div class="progress"><div style="width:${prog.pct}%"></div></div><div class="hint">Progresso do dia ${prog.pct}% • mínimo: 3 pilares</div></div>
   <div class="grid"><div class="card g6"><h2>Level</h2><div class="small">${S.rpg.xp}/${xpNext} XP</div><div class="progress"><div style="width:${lvlPct}%"></div></div></div><div class="card g6"><h2>Pilares</h2><div class="list">${['Protocolo','Estudo','Dieta','Treino','Bíblia'].map((n,i)=>{const k=['proto','study','diet','train','bible'][i];return `<div class='item'><div><div class='name'>${n}</div><div class='meta'>${prog[k]?'Concluído':'Pendente'}</div></div><span class='badge'>${prog[k]?'OK':'—'}</span></div>`;}).join('')}</div><div class="row"><button class="btn" id="btnCloseDay">FECHAR O DIA</button><button class="btn danger" id="btnUndo">DESFAZER</button></div></div></div>
   <div class="card"><h2>Status do personagem</h2>${attrsPanelHTML()}</div>
+  ${modeChangeCardHTML()}
   <div class="card"><h2>Tarefas com horário</h2><div class="list">${tasks.length?tasks.map((t,i)=>`<div class='item'><div><div class='name'>${t.time} • ${t.title}</div><div class='meta'>${t.cat}</div></div><button class='btn' data-donetask='${i}'>FEITO</button></div>`).join(''):'<div class="hint">Sem tarefas de hoje.</div>'}</div></div>
   <div class="card"><h2>Pressão inteligente</h2>${pressurePanelHTML()}</div>`;
   $('#btnExec').onclick=()=>{activeTab=win.tab||'DASH';render();};
   $('#btnCloseDay').onclick=()=>{const k=todayKey(); if(S.streakLog[k]) return showToast('Dia já fechado'); const v=prog.done===5; if(v){S.rpg.streak++; addXP(120); adjustIntegrity(+4); showToast('Dia perfeito');} else if(prog.done>=3){addXP(40); adjustIntegrity(+1); showToast('Sobreviveu')} else {S.rpg.streak=0; adjustIntegrity(-6); showToast('Dia falhou')}; S.streakLog[k]=true; saveState(); render();};
   $('#btnUndo').onclick=undoLastAction;
   view.querySelectorAll('[data-attr]').forEach(b=>b.onclick=()=>{ const k=b.dataset.attr; const d=Number(b.dataset.delta)||0; S.ui.attrs[k]=Math.max(0,Math.min(100,(S.ui.attrs[k]||0)+d)); saveState(); render(); });
+  view.querySelectorAll('[data-mode-choice]').forEach(b=>b.onclick=()=>{
+    if(!S.modeChange.enabled) return showToast('Ative o modo change na Config.');
+    const choice=CHANGE_CHOICES.find(c=>c.id===b.dataset.modeChoice);
+    if(!choice) return;
+    const mins=Math.max(10, Number(S.modeChange.durationMin||45));
+    S.modeChange.active={id:choice.id,title:choice.title,tab:choice.tab,startedAt:Date.now(),endsAt:Date.now()+mins*60000};
+    S.strictMode=true;
+    activeTab=choice.tab;
+    addXP(8,'generic');
+    saveState();
+    showToast(`Modo change: ${choice.title} por ${mins} min`);
+    render();
+  });
+  const stopBtn=$('#btnModeChangeStop');
+  if(stopBtn) stopBtn.onclick=()=>{ S.modeChange.active=null; saveState(); showToast('Modo change encerrado'); render(); };
   view.querySelectorAll('[data-donetask]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.donetask); const arr=S.tasks.byDate[todayKey()]||[]; const it=arr[i]; if(!it) return; arr.splice(i,1); addXP(15,'ops'); adjustIntegrity(+1); saveState(); showToast('Tarefa concluída'); render();});
 }
 
@@ -627,13 +675,13 @@ function viewCfg(){
     ['dopaminePopups','Popups de recompensa'],['comboDecay','Combo decay automático'],['workoutAutoFlow','Fluxo automático treino'],
     ['studyVoice','Voz no timer de estudo'],['aiInsights','Insights IA de treino']
   ];
-  view.innerHTML=`<div class='card'><h2>Config geral</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
+  view.innerHTML=`<div class='card'><h2>Config geral</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo Change</label><select id='cfgModeChange'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>Duração modo change (min)</label><input id='cfgModeMins' type='number' min='10' max='240' step='5' value='${S.modeChange.durationMin||45}'></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
   <div class='card'><h2>Controle total (ativar/desativar tudo)</h2><div class='list'>${toggleRows.map(([k,label])=>`<div class='item'><div><div class='name'>${label}</div><div class='meta'>Chave: ${k}</div></div><button class='btn ${featureOn(k)?'primary':'ghost'}' data-ft='${k}'>${featureOn(k)?'ATIVO':'INATIVO'}</button></div>`).join('')}</div></div>
   <div class='card'><h2>Música</h2><div class='hint'>Upload mp3/m4a salvo offline no IndexedDB.</div><input id='musicFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR</button></div></div>
   <div class='card'><h2>Backup</h2><div class='row'><button class='btn' id='btnExport'>EXPORTAR JSON</button><button class='btn' id='btnImport'>IMPORTAR JSON</button><input id='importFile' type='file' accept='application/json' style='display:none'></div><button class='btn danger' id='btnWipe'>RESET TOTAL</button>
   <button class='btn' id='btnForceRefresh'>FORÇAR ATUALIZAÇÃO APP</button></div>`;
-  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
-  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
+  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgModeChange').value=S.modeChange.enabled?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
+  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.modeChange.enabled=$('#cfgModeChange').value==='1'; S.modeChange.durationMin=Math.max(10,Math.min(240,Number($('#cfgModeMins').value)||45)); if(!S.modeChange.enabled) S.modeChange.active=null; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
   view.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{ const key=b.dataset.ft; S.features[key]=!S.features[key]; saveState(); render(); });
   $('#musicFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('music',f); await loadMusicIfAny(); showToast('Música salva'); };
   $('#btnMusicPlay').onclick=()=>{ startMusic(); showToast('Play'); };
@@ -646,7 +694,7 @@ function viewCfg(){
   $('#btnForceRefresh').onclick=forceRefreshApp;
 }
 
-function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' && S.strictMode && featureOn('beeps')) beep(140,.09,.08);
+function render(){ refreshHUD(); renderTabs(); if(currentMissionWindow().id==='sleep' && S.strictMode && featureOn('beeps')) beep(140,.09,.08);
   switch(activeTab){
     case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
@@ -659,7 +707,7 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
   applyTheme();
   loadMusicIfAny();
   $('#startClass').value=S.class;
-  $('#btnStart').onclick=()=>{ S.class=$('#startClass').value; saveState(); $('#start').style.display='none'; $('#start').setAttribute('aria-hidden','true'); activeTab=currentWindow().tab||'DASH'; startMusic(); render(); };
+  $('#btnStart').onclick=()=>{ S.class=$('#startClass').value; saveState(); $('#start').style.display='none'; $('#start').setAttribute('aria-hidden','true'); activeTab=currentMissionWindow().tab||'DASH'; startMusic(); render(); };
   document.addEventListener('click', (e)=>{
     const el=e.target.closest('.btn');
     if(!el) return;
@@ -668,4 +716,4 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
   refreshHUD();
 })();
 
-setInterval(()=>{ refreshHUD(); if(featureOn('comboDecay') && (S.rpg.combo||0)>0){ S.rpg.combo=Math.max(0,S.rpg.combo-1); saveState(); } if(S.strictMode && featureOn('autoWindowRedirect')){ const win=currentWindow(); if(activeTab!==win.tab && !['CFG','REL'].includes(activeTab)){ activeTab=win.tab; render(); }} }, 30000);
+setInterval(()=>{ ensureModeChangeValidity(); refreshHUD(); if(featureOn('comboDecay') && (S.rpg.combo||0)>0){ S.rpg.combo=Math.max(0,S.rpg.combo-1); saveState(); } if(S.strictMode && featureOn('autoWindowRedirect')){ const win=currentMissionWindow(); if(activeTab!==win.tab && !['CFG','REL'].includes(activeTab)){ activeTab=win.tab; render(); }} }, 1000);
