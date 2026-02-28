@@ -373,6 +373,8 @@ function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.th
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
+function applyTheme(){ document.body.classList.toggle('crt', !!(S.theme&&S.theme.crt)); }
+
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
 function openModal(title, sub, bodyHtml){ modalTitle.textContent=title; modalSub.textContent=sub||''; modalBody.innerHTML=bodyHtml; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
 function closeModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
@@ -440,12 +442,16 @@ const VoiceEngine = {
     MID_SET_PUSH:['Agora começa.','Mantém padrão.','Sem quebrar técnica.'],LAST_REP_PUSH:['Essa define você.','Mais uma.','Não negocia.'],
     REST_START:{compound:['Recuperação neural. 3 minutos.','Respiração profunda.'],isolation:['Controle a respiração.','Mais 60 segundos.']},REST_MID:['Mantém respiração controlada.','Recupera e organiza técnica.'],REST_END:['Prepara.','Foco.','Últimos segundos.'],
     LAST_SET_ALERT:['Última série.','Entrega técnica máxima.','Sem ego. Só execução.'],FATIGUE_WARNING:['Fadiga alta. Técnica acima de tudo.','Reduz velocidade se necessário.','Controle total.'],
-    PR_DETECTED:['Novo recorde.','Evolução registrada.','Consistência vence talento.'],WORKOUT_COMPLETE:['Treino concluído.','Você construiu algo hoje.','Disciplina validada.']
+    PR_DETECTED:['Novo recorde.','Evolução registrada.','Consistência vence talento.'],WORKOUT_COMPLETE:['Treino concluído.','Você construiu algo hoje.','Disciplina validada.'],
+    SUB_PRIORITY:['Peito superior está atrasado. Hoje é prioridade.','Foco total nesse ângulo.','Constrói onde falta.'],
+    EXCESS_WARNING:['Volume alto acumulado. Controle a execução.','Sem forçar além do necessário.'],
+    PERFORMANCE_ALERT:['Performance caiu nas últimas semanas.','Foco na consistência.','Sem ego.'],
+    WEAKPOINT_FOCUS:['Esse é seu ponto fraco.','Construa largura.','Ombro lateral define seu shape.']
   },
   MuscleContextLayer:{chest:['Abre o peito.','Controle no alongamento.'],back:['Cotovelo para o quadril.','Dorsal contrai.'],delts:['Não rouba.','Lento na descida.'],quads:['Desce profundo.','Joelho estável.'],hamstrings:['Quadril para trás.','Alongamento máximo.'],calves:['Segura dois segundos.','Completo embaixo.'],core:['Costelas para baixo.','Contração total.']},
   pick(list, seed='x'){ if(!Array.isArray(list)||!list.length) return ''; const i=Math.abs(String(seed).split('').reduce((a,c)=>a+c.charCodeAt(0),0))%list.length; return list[i]; },
-  resolve(state,ctx={}){ if((ctx.fatigueScore||0)>70 && [VOICE_STATES.PRE_SET,VOICE_STATES.REST_START].includes(state)) state=VOICE_STATES.FATIGUE_WARNING; if(state===VOICE_STATES.PRE_SET){const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.PRE_SET[t],ctx.exerciseName);} if(state===VOICE_STATES.REST_START){const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.REST_START[t],ctx.exerciseName);} return this.pick(this.ScriptLibrary[state]||[],`${ctx.exerciseName||''}${ctx.rep||1}${ctx.setNo||1}`); },
-  enrich(text,ctx={}){ const cfg=S.training?.voice||{}; const phase=ctx.phase==='deload'?'Deload técnico. ':ctx.phase==='intensification'?'Bloco de intensificação. ':''; const cue=this.pick(this.MuscleContextLayer[ctx.muscleId]||[],`${ctx.exerciseName||''}${ctx.rep||1}`); const base=`${phase}${text}`.trim(); const withCue=(cfg.mode==='hardcore'&&cue&&[VOICE_STATES.PRE_SET,VOICE_STATES.ECCENTRIC,VOICE_STATES.CONCENTRIC].includes(ctx.state))?`${base} ${cue}`:base; const level=Number(cfg.intensity||2); if(level>=3||Number(ctx.rpe||8)>=10) return `Máximo foco. ${withCue.split('. ')[0]}.`; if(level===2||Number(ctx.rpe||8)>=9) return `Firme. ${withCue}`; return withCue; },
+  resolve(state,ctx={}){ if((ctx.fatigueScore||0)>70 && [VOICE_STATES.PRE_SET,VOICE_STATES.REST_START].includes(state)) state=VOICE_STATES.FATIGUE_WARNING; if(state===VOICE_STATES.PRE_SET){ if((ctx.mav_percent||100)<70) return this.pick(this.ScriptLibrary.SUB_PRIORITY,ctx.exerciseName); if((ctx.mav_percent||0)>130) return this.pick(this.ScriptLibrary.EXCESS_WARNING,ctx.exerciseName); if((ctx.fatigue_score||0)>70) return this.pick(this.ScriptLibrary.FATIGUE_WARNING,ctx.exerciseName); if((ctx.isWeakPoint||false)) return this.pick(this.ScriptLibrary.WEAKPOINT_FOCUS,ctx.exerciseName); const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.PRE_SET[t],ctx.exerciseName);} if(state===VOICE_STATES.REST_START){const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.REST_START[t],ctx.exerciseName);} if(state===VOICE_STATES.WORKOUT_COMPLETE && (ctx.trend_pct||0)<-5) return this.pick(this.ScriptLibrary.PERFORMANCE_ALERT,ctx.exerciseName); return this.pick(this.ScriptLibrary[state]||[],`${ctx.exerciseName||''}${ctx.rep||1}${ctx.setNo||1}`); },
+  enrich(text,ctx={}){ const cfg=S.training?.voice||{}; const phasePrefix=ctx.phase==='deload'?'Semana estratégica. Recuperar é evoluir. ':ctx.phase==='intensification'?'Bloco de intensificação. ':ctx.phase==='base'?'Base técnica. ':''; const cue=this.pick(this.MuscleContextLayer[ctx.muscleId]||[],`${ctx.exerciseName||''}${ctx.rep||1}`); const base=`${phasePrefix}${text}`.trim(); const withCue=(cfg.mode==='hardcore'&&cue&&[VOICE_STATES.PRE_SET,VOICE_STATES.ECCENTRIC,VOICE_STATES.CONCENTRIC].includes(ctx.state))?`${base} ${cue}`:base; const level=Number(cfg.intensity||2); if(level>=3||Number(ctx.rpe||8)>=10) return `Máximo foco. ${withCue.split('. ')[0]}.`; if(level===2||Number(ctx.rpe||8)>=9||ctx.phase==='intensification') return `Firme. ${withCue}`; return withCue; },
   dispatch(state,ctx={}){ if(!this.StateController.canSpeak(state,ctx)) return; this.StateController.set(state); const raw=this.resolve(state,ctx); if(!raw) return; mentorSpeak(this.enrich(raw,{...ctx,state})); },
   preSet(ex,ctx={}){ this.dispatch(VOICE_STATES.PRE_SET,{...ctx,exerciseName:ex.name,exerciseType:ex.type,muscleId:ex.primary_muscle_id}); },
   eccentric(ctx={}){ this.dispatch(VOICE_STATES.ECCENTRIC,ctx); }, pause(ctx={}){ this.dispatch(VOICE_STATES.PAUSE,ctx); }, concentric(ctx={}){ this.dispatch(VOICE_STATES.CONCENTRIC,ctx); },
@@ -474,7 +480,7 @@ function startCadenceSetFlow(exObj, opts={}){
   const reps=opts.repsTarget||Math.round((exObj.reps_range?.[0]+exObj.reps_range?.[1])/2)||8;
   cadenceRunner={...cadenceRunner,running:true,pause:false,rep:1,targetReps:reps,set:opts.setNo||1,targetSets:opts.sets||exObj.sets||1,log:[]};
   VoiceEngine.dispatch(VOICE_STATES.PRE_WORKOUT,{exerciseName:exObj.name,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
-  VoiceEngine.preSet({name:exObj.name,type:exObj.type,primary_muscle_id:exObj.primary_muscle_id||'chest'},{phase:opts.phase||'base',rpe:Number(exObj.RPE||8),setNo:opts.setNo||1,fatigueScore:opts.fatigueScore||0,exerciseType:exObj.type||'compound'});
+  VoiceEngine.preSet({name:exObj.name,type:exObj.type,primary_muscle_id:exObj.primary_muscle_id||'chest'},{phase:opts.phase||'base',rpe:Number(exObj.RPE||8),setNo:opts.setNo||1,fatigueScore:opts.fatigueScore||0,exerciseType:exObj.type||'compound',mav_percent:opts.mavPercent||100,trend_pct:opts.trend||0,isWeakPoint:!!opts.isWeakPoint});
   if((opts.setNo||1)>=(opts.sets||exObj.sets||1)) VoiceEngine.lastSet({exerciseName:exObj.name,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
   const cad=exObj.cadence_seconds||{eccentric:3,pause:1,concentric:1};
   const runRep=()=>{
@@ -629,6 +635,33 @@ function trainingAnalytics(){
 
   return {fatigue,readiness,stimulus,hyper,neural,globalPerf,byMuscle,lowMuscles,highFatigue,plateau,perfTrend};
 }
+
+function mapWeakPointToMuscleId(text=''){
+  const t=String(text).toLowerCase();
+  if(t.includes('peito')) return 'chest';
+  if(t.includes('costa')) return 'back';
+  if(t.includes('deltoide')||t.includes('ombro')) return 'delts';
+  if(t.includes('abd')) return 'core';
+  if(t.includes('quadr')) return 'quads';
+  if(t.includes('posterior')) return 'hamstrings';
+  if(t.includes('pant')) return 'calves';
+  return '';
+}
+function getVoiceDashboardContext(exDef, payload){
+  const muscleId=exDef?.primary_muscle_id || 'chest';
+  const m=(payload?.muscles||[]).find(x=>x.muscle_id===muscleId) || null;
+  const weakIds=(S.profile?.weakPoints||[]).map(mapWeakPointToMuscleId).filter(Boolean);
+  return {
+    muscleId,
+    status:m?.status||'ideal',
+    mav_percent:m?.mav_percent||100,
+    fatigue_score:m?.fatigue_score||0,
+    trend_pct:m?.trend_pct||0,
+    priority:m?.priority||'normal',
+    isWeakPoint:weakIds.includes(muscleId)
+  };
+}
+
 function trainingIntelligenceHTML(a){
   const muscleRows = Object.keys(a.byMuscle).length ? Object.entries(a.byMuscle).map(([m,v])=>`<div class='item'><div><div class='name'>${m}</div><div class='meta'>Volume semanal estimado</div></div><span class='badge'>${v} sets</span></div>`).join('') : '<div class="hint">Sem dados de volume ainda.</div>';
   return `<div class='card'><h2>AI Training Engine</h2>
@@ -670,6 +703,7 @@ function viewTreino(){
   const deterministic=generateDeterministicWorkout({days:env==='home'?4:5, environment:env==='home'?'casa':'academia', level:'intermediario', phase:phaseName==='base'?'Base':phaseName==='intensification'?'Intensification':phaseName==='deload'?'Deload':'Base', weeklyStats});
   const autoDeload=shouldAutoDeload(weeklyStats);
   const globalScore=computePerformanceGlobalScore();
+  const dashboardPayload=getMuscleDashboardPayload();
   const profile=S.profile||PERSONAL_PROFILE_DEFAULT;
   const weakTargets=(profile.weakPoints||[]).join(' • ');
   const coachTone=profile.style||'Hardcore técnico';
@@ -706,7 +740,7 @@ function viewTreino(){
 
   <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div style='display:flex; gap:10px; align-items:center'><img class='ex-thumb' src='${EXERCISE_VISUALS[e.id]||'assets/icon.svg'}' alt='${e.name}'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}<br>Explicação: ${e.primary_muscle_id==='chest'?'Peitoral superior e estabilidade de ombro.':e.primary_muscle_id==='back'?'Largura dorsal e força de puxada.':e.primary_muscle_id==='delts'?'Deltoide lateral para estética 3D.':e.primary_muscle_id==='quads'?'Base de força e pernas densas.':e.primary_muscle_id==='hamstrings'?'Posterior forte para proteção lombar.':'Foco local com técnica.'}</div></div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
 
-  ${muscleDashboardHTML(getMuscleDashboardPayload())}
+  ${muscleDashboardHTML(dashboardPayload)}
 
   <div class='card'><h2>Runner da sessão</h2>
     <div class='kpi'><div><div class='big'>${session.active && exNow ? exNow.name : 'Sessão parada'}</div><div class='small'>${session.active && exNow ? `Exercício ${session.exIndex+1}/${exercises.length} • Série ${session.setNo}/${exNow.sets}` : 'Inicie para executar com timers em segundos.'}</div></div><span class='badge' id='workTimerState'>${workoutTimer.mode==='rest'?'DESCANSO':'EXECUÇÃO'}</span></div>
@@ -763,9 +797,11 @@ function viewTreino(){
     const ex=currentProgramExercise();
     const template=(sessionWithPhase?.exercises||[])[0];
     const source = template || {name:ex?.name||'Exercício', reps_range:[8,10], cadence:{eccentric:3,pause:1,concentric:1}, sets:ex?.sets||3, rest_sec:120, type:'compound', muscle:'Peito'};
-    if(autoDeload) VoiceEngine.fatigueWarning();
-    VoiceEngine.preSet(source);
-    TimerEngine.startExecutionTimer(source,(S.training.program.session?.setNo||1),(source.sets||3),{phase:phaseName,fatigueScore:autoDeload?80:45});
+    const sourceDef=getExerciseDefByName(source.name)||EXERCISES_DB[0];
+    const vctx=getVoiceDashboardContext(sourceDef,dashboardPayload);
+    if(autoDeload) VoiceEngine.fatigueWarning(vctx);
+    VoiceEngine.preSet({...source,primary_muscle_id:sourceDef.primary_muscle_id,type:source.type||sourceDef.type},{phase:phaseName,rpe:Number(source.RPE||8),setNo:(S.training.program.session?.setNo||1),fatigueScore:vctx.fatigue_score,exerciseType:source.type||sourceDef.type,...vctx});
+    TimerEngine.startExecutionTimer({...source,primary_muscle_id:sourceDef.primary_muscle_id,type:source.type||sourceDef.type,RPE:Number(source.RPE||8)},(S.training.program.session?.setNo||1),(source.sets||3),{phase:phaseName,fatigueScore:vctx.fatigue_score,mavPercent:vctx.mav_percent,trend:vctx.trend_pct,isWeakPoint:vctx.isWeakPoint});
   };
   $('#btnCadencePause').onclick=()=>{ TimerEngine.pause(); showToast(cadenceRunner.pause?'Cadência pausada':'Cadência retomada'); };
   $('#btnCadenceStop').onclick=()=>{ stopCadenceFlow(); showToast('Cadência encerrada'); };
@@ -812,6 +848,8 @@ function viewTreino(){
     const progMsg=`${progressionRule(perf, top)} • eReps ${met.effectiveReps.toFixed(1)} • Int ${(met.intensity*100).toFixed(0)}%`;
     showToast(progMsg);
     mentorSpeak(`Boa série. ${progMsg}. Disciplina técnica acima de tudo.`);
+    const setVoiceCtx=getVoiceDashboardContext(exDef,dashboardPayload);
+    if(setVoiceCtx.trend_pct<-5) VoiceEngine.dispatch(VOICE_STATES.WORKOUT_COMPLETE,{exerciseName:ex.name,phase:phaseName,trend_pct:setVoiceCtx.trend_pct,rpe:Number(ex.rpe)||8,...setVoiceCtx});
     setLastAction({type:'trainSet',entry});
     addXP(24,'train');
     adjustIntegrity(+1);
