@@ -763,9 +763,9 @@ function viewTreino(){
   const profile=S.profile||PERSONAL_PROFILE_DEFAULT;
   const weakTargets=(profile.weakPoints||[]).join(' • ');
   const coachTone=profile.style||'Hardcore técnico';
+  const {track,prog,dayKey,exercises}=getProgramAndDay();
   const personalSource = env==='home' ? PERSONAL_TRAINING_DB.home : PERSONAL_TRAINING_DB.gym;
   const personalSession = personalSource.sessions.find(s=>dayKey.toLowerCase().includes((s.name||'').toLowerCase().replace('_',''))) || personalSource.sessions[0];
-  const {track,prog,dayKey,exercises}=getProgramAndDay();
   if(autoDeload && S.training.program.week!==5){
     S.training.program.week=5;
     showToast('Deload automático: volume 0.65x e RPE alvo 6');
