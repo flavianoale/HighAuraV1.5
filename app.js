@@ -728,6 +728,136 @@ function computePerformanceGlobalScore(){
   return {treino,sleep,disciplina,foco,score};
 }
 
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function weekRange(offset=0){
+  const now=new Date();
+  const d=new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day=d.getDay();
+  const diff=(day+6)%7;
+  d.setDate(d.getDate()-diff + (offset*7));
+  const start=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const end=new Date(start); end.setDate(end.getDate()+7);
+  return {start,end};
+}
+function getMuscleDashboardPayload(){
+  const weeks=[-3,-2,-1,0].map((o)=>weekRange(o));
+  const perf=S.training.performance||[];
+  const perWeek=weeks.map((w)=>{
+    const row={};
+    for(const m of MUSCLE_GROUPS){ row[m.id]={sets:0, stimulus:0, fatigueRaw:0}; }
+    for(const p of perf){
+      const t=new Date(p.date).getTime();
+      if(Number.isNaN(t) || t<w.start.getTime() || t>=w.end.getTime()) continue;
+      const ex=EXERCISES_DB.find(e=>e.id===p.exercise_id); if(!ex) continue;
+      const met=calcSetDeterministicMetrics(p, ex);
+      row[ex.primary_muscle_id].sets += 1;
+      row[ex.primary_muscle_id].stimulus += met.stimulus;
+      row[ex.primary_muscle_id].fatigueRaw += met.effectiveReps;
+      if(ex.secondary_muscle_id && row[ex.secondary_muscle_id]) row[ex.secondary_muscle_id].sets += 0.5;
+    }
+    for(const m of MUSCLE_GROUPS){ row[m.id].fatigueRaw = row[m.id].fatigueRaw * m.fatigue_factor; }
+    return row;
+  });
+
+  const current=perWeek[3], prev=perWeek[2];
+  const muscles=MUSCLE_GROUPS.map((m)=>{
+    const weekly_sets=Number((current[m.id]?.sets||0).toFixed(1));
+    const stimulusRaw=current[m.id]?.stimulus||0;
+    const mav_mid=(m.MAV_min+m.MAV_max)/2;
+    const mav_percent= mav_mid>0 ? Math.round((weekly_sets/mav_mid)*100) : 0;
+    const stimulusTarget=Math.max(1, weekly_sets*1.0);
+    const stimulus_score=Math.round(clamp((stimulusRaw/stimulusTarget)*100,0,100));
+    const fatigueRaw=current[m.id]?.fatigueRaw||0;
+    const fatigueCap=Math.max(1,m.MRV*8);
+    const fatigue_score=Math.round(clamp((fatigueRaw/fatigueCap)*100,0,100));
+    const status = mav_percent<70 ? 'subestimulado' : mav_percent<=110 ? 'ideal' : mav_percent<=130 ? 'alto' : 'excesso';
+
+    const anchors=EXERCISES_DB.filter(e=>e.primary_muscle_id===m.id).slice(0,2).map(e=>e.id);
+    const bestByWeek=weeks.map((w)=>{
+      const vals=perf.filter(p=>anchors.includes(p.exercise_id)).filter(p=>{const t=new Date(p.date).getTime(); return t>=w.start.getTime() && t<w.end.getTime();}).map(p=>estimate1RM(p.weight,p.reps));
+      return vals.length?Math.max(...vals):0;
+    });
+    const first=bestByWeek[0]||0, last=bestByWeek[3]||0;
+    const trend_pct = first>0 ? Math.round(((last-first)/first)*100) : 0;
+
+    let priority='normal';
+    if(mav_percent<70 || fatigue_score>70 || trend_pct<-8) priority='alta';
+    else if(mav_percent>110 || trend_pct<0) priority='media';
+
+    return {
+      muscle_id:m.id,
+      name:m.name,
+      weekly_sets,
+      mav_min:m.MAV_min,
+      mav_max:m.MAV_max,
+      mrv:m.MRV,
+      mav_percent,
+      status,
+      stimulus_score,
+      fatigue_score,
+      trend_4w:{
+        sets:perWeek.map((wk)=>Number((wk[m.id]?.sets||0).toFixed(1))),
+        stimulus:perWeek.map((wk)=>Math.round(clamp((wk[m.id]?.stimulus||0),0,100))),
+        fatigue:perWeek.map((wk)=>Math.round(clamp(((wk[m.id]?.fatigueRaw||0)/Math.max(1,m.MRV*8))*100,0,100)))
+      },
+      trend_pct,
+      priority,
+      score_priority: (100-clamp(mav_percent,0,160)) + fatigue_score + Math.max(0,-trend_pct)
+    };
+  });
+
+  const alerts=[];
+  for(const m of muscles){
+    const prevSets=Number((prev[m.muscle_id]?.sets||0).toFixed(1));
+    const prevMid=(m.mav_min+m.mav_max)/2;
+    const prevPct= prevMid>0 ? Math.round((prevSets/prevMid)*100) : 0;
+    if(m.mav_percent<70 && prevPct<70){ alerts.push({type:'undertrained',muscle:m.name,message:`${m.name} abaixo de 70% do MAV por 2 semanas. Aumente +2 sets/semana.`}); }
+    if(m.mav_percent>130){ alerts.push({type:'excess',muscle:m.name,message:`${m.name} acima de 130% do MAV. Reduzir -2 sets e monitorar recuperação.`}); }
+    if(m.trend_pct<-8 && m.fatigue_score>75){ alerts.push({type:'overreaching',muscle:m.name,message:`Sinal de overreaching em ${m.name}: queda >8% com fadiga alta. Deload parcial recomendado.`}); }
+  }
+
+  const wr=weekRange(0);
+  return {
+    week_start: wr.start.toISOString().slice(0,10),
+    week_end: wr.end.toISOString().slice(0,10),
+    muscles,
+    top_priorities:[...muscles].sort((a,b)=>b.score_priority-a.score_priority),
+    alerts
+  };
+}
+function heatClass(status){ return status==='subestimulado' ? 'heat-sub' : status==='ideal' ? 'heat-ideal' : status==='alto' ? 'heat-high' : 'heat-excess'; }
+function trendBars(values){
+  const max=Math.max(1,...values);
+  return `<div class='trend-bars'>${values.map(v=>`<span style='height:${Math.max(6,Math.round((v/max)*32))}px' title='${v}'></span>`).join('')}</div>`;
+}
+function muscleDashboardHTML(payload){
+  const byId={}; payload.muscles.forEach(m=>byId[m.muscle_id]=m);
+  const zone=(id,label)=>{ const m=byId[id]; if(!m) return ''; return `<button class='muscle-zone ${heatClass(m.status)}' data-muscle-open='${m.muscle_id}'><strong>${label}</strong><small>${m.weekly_sets} sets • ${m.mav_percent}% MAV</small><small>Stim ${m.stimulus_score} • ${m.status}</small></button>`; };
+  const renderPriority=(arr)=>arr.map((m,i)=>`<div class='item'><div><div class='name'>${i+1}. ${m.name}</div><div class='meta'>MAV ${m.mav_percent}% • Fadiga ${m.fatigue_score} • Tendência ${m.trend_pct}%</div></div><span class='badge'>${m.priority}</span></div>`).join('');
+  const priorities=renderPriority(payload.top_priorities);
+  const trends=payload.muscles.map((m)=>`<div class='item trend-item'><div><div class='name'>${m.name}</div><div class='meta'>Sets</div>${trendBars(m.trend_4w.sets)}<div class='meta'>Stimulus</div>${trendBars(m.trend_4w.stimulus)}<div class='meta'>Fadiga</div>${trendBars(m.trend_4w.fatigue)}</div><span class='badge'>${m.trend_pct}%</span></div>`).join('');
+  const alerts=payload.alerts.length ? payload.alerts.map(a=>`<div class='item'><div><div class='name'>${a.muscle}</div><div class='meta'>${a.message}</div></div><span class='badge'>${a.type}</span></div>`).join('') : '<div class="hint">Sem alertas críticos nesta semana.</div>';
+  return `<div class='card'><h2>Dashboard de Músculos</h2><div class='hint'>Semana ${payload.week_start} → ${payload.week_end}</div>
+  <div class='grid'>
+    <div class='g8'>
+      <h3>Mapa do Corpo (Front/Back)</h3>
+      <div class='muscle-map'>
+        <div><div class='small'>Front</div>${zone('chest','Peito')}${zone('delts','Deltoides')}${zone('biceps','Bíceps')}${zone('quads','Quadríceps')}${zone('calves','Panturrilha')}</div>
+        <div><div class='small'>Back</div>${zone('back','Costas')}${zone('triceps','Tríceps')}${zone('hamstrings','Posterior')}</div>
+      </div>
+      <div class='legend'><span class='dot heat-sub'></span>Subestimulado <span class='dot heat-ideal'></span>Ideal <span class='dot heat-high'></span>Alto <span class='dot heat-excess'></span>Excesso</div>
+    </div>
+    <div class='g4'>
+      <h3>Top Prioridades</h3><label>Ordenar por</label><select id='prioritySort'><option value='mav'>Menor % MAV</option><option value='fatigue'>Maior fadiga</option><option value='trend'>Pior tendência</option></select>
+      <div class='list' id='priorityList'>${priorities}</div>
+    </div>
+  </div>
+  <h3>Trend 4 semanas por músculo</h3><div class='list'>${trends}</div>
+  <h3>Alertas automáticos</h3><div class='list'>${alerts}</div>
+  </div>`;
+}
+
+
 const TrainingEngine = {
   effectiveReps(reps, rpe){ return rpe>=8 ? Math.max(0, reps - (10-rpe)) : 0; },
   relativeIntensity(weight, estimated1RM){ return estimated1RM>0 ? weight/estimated1RM : 0; },
@@ -991,6 +1121,8 @@ function viewTreino(){
 
   <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div style='display:flex; gap:10px; align-items:center'><img class='ex-thumb' src='${EXERCISE_VISUALS[e.id]||'assets/icon.svg'}' alt='${e.name}'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}<br>Explicação: ${e.primary_muscle_id==='chest'?'Peitoral superior e estabilidade de ombro.':e.primary_muscle_id==='back'?'Largura dorsal e força de puxada.':e.primary_muscle_id==='delts'?'Deltoide lateral para estética 3D.':e.primary_muscle_id==='quads'?'Base de força e pernas densas.':e.primary_muscle_id==='hamstrings'?'Posterior forte para proteção lombar.':'Foco local com técnica.'}</div></div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
 
+  ${muscleDashboardHTML(getMuscleDashboardPayload())}
+
   <div class='card'><h2>Runner da sessão</h2>
     <div class='kpi'><div><div class='big'>${session.active && exNow ? exNow.name : 'Sessão parada'}</div><div class='small'>${session.active && exNow ? `Exercício ${session.exIndex+1}/${exercises.length} • Série ${session.setNo}/${exNow.sets}` : 'Inicie para executar com timers em segundos.'}</div></div><span class='badge' id='workTimerState'>${workoutTimer.mode==='rest'?'DESCANSO':'EXECUÇÃO'}</span></div>
     <div class='big' id='workTimerBig'>${fmtTimerSec(workoutTimer.left||0)}</div>
@@ -1053,6 +1185,27 @@ function viewTreino(){
   $('#btnCadencePause').onclick=()=>{ TimerEngine.pause(); showToast(cadenceRunner.pause?'Cadência pausada':'Cadência retomada'); };
   $('#btnCadenceStop').onclick=()=>{ stopCadenceFlow(); showToast('Cadência encerrada'); };
   $('#btnCadenceAdvance').onclick=()=>{ TimerEngine.skip(); showToast('Avanço manual registrado'); };
+
+  view.querySelectorAll('[data-muscle-open]').forEach((b)=>b.onclick=()=>{
+    const id=b.dataset.muscleOpen;
+    const payload=getMuscleDashboardPayload();
+    const m=payload.muscles.find(x=>x.muscle_id===id);
+    if(!m) return;
+    openModal(`Músculo: ${m.name}`,'Detalhe determinístico',`<div class='list'><div class='item'><div><div class='name'>Status</div><div class='meta'>${m.status} • ${m.mav_percent}% MAV</div></div><span class='badge'>sets ${m.weekly_sets}</span></div><div class='item'><div><div class='name'>Stimulus/Fadiga</div><div class='meta'>Stimulus ${m.stimulus_score} • Fadiga ${m.fatigue_score}</div></div><span class='badge'>trend ${m.trend_pct}%</span></div></div>`);
+  });
+
+  const prioritySort=$('#prioritySort');
+  if(prioritySort){
+    prioritySort.onchange=(e)=>{
+      const payload=getMuscleDashboardPayload();
+      let arr=[...payload.muscles];
+      if(e.target.value==='mav') arr.sort((a,b)=>a.mav_percent-b.mav_percent);
+      if(e.target.value==='fatigue') arr.sort((a,b)=>b.fatigue_score-a.fatigue_score);
+      if(e.target.value==='trend') arr.sort((a,b)=>a.trend_pct-b.trend_pct);
+      const list=$('#priorityList');
+      if(list) list.innerHTML=arr.map((m,i)=>`<div class='item'><div><div class='name'>${i+1}. ${m.name}</div><div class='meta'>MAV ${m.mav_percent}% • Fadiga ${m.fatigue_score} • Tendência ${m.trend_pct}%</div></div><span class='badge'>${m.priority}</span></div>`).join('');
+    };
+  }
   $('#btnConcluirSerie').onclick=()=>{
     const ex=currentProgramExercise();
     if(!ex) return showToast('Sem sessão ativa');
