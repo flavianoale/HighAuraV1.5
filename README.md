@@ -6,6 +6,7 @@ Versão expandida e mais interativa, inspirada no app de referência:
 - 13 abas operacionais: HUD, Protocolo, Dieta, Treino, Estudo, Bíblia, Tarefas, Social, Projetos, Finanças, Diário, Relatórios e Config.
 - Timer de estudo, sistema de dieta com porções e travas, treino com registro de sets e progressão simples.
 - Treino programado completo (Casa e Academia) com runner de sessão e timers segundo a segundo para execução e descanso.
+- Treino AUTO PILOT 100%: sessão automática do dia com execução + descanso + registro de séries + coach de cues em áudio.
 - Mentor por áudio (TTS + bipes): início execução, início descanso, aviso de 10s restantes e fim de fase.
 - AI Training Engine: scores proprietários (Stimulus Efficiency, Fatigue Index, Recovery Readiness, Hypertrophy Potential, Neural Drive), digital muscle map, deload adaptativo e Performance Global Score.
 - Tarefas com horário (criar/concluir/apagar) integradas no dia.

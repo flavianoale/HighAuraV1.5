@@ -153,6 +153,7 @@ let timer = {running:false, total:0, left:0, startedAt:0, paused:false, topic:''
 let timerInterval;
 let workoutTimer = {running:false, mode:'idle', left:0, total:0, startedAt:0, paused:false};
 let workoutInterval;
+let autoPilot = {running:false, currentExercise:'', currentSet:0, totalSets:0};
 
 const $ = (q)=>document.querySelector(q);
 const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
@@ -438,6 +439,9 @@ function viewTreino(){
       <button class='btn danger' id='btnStopWorkTimer'>PARAR TIMER</button>
       <button class='btn primary' id='btnConcluirSerie'>CONCLUIR SÉRIE</button>
       <button class='btn' id='btnAutoSerie'>GUIA AUTO (EXEC→REST)</button>
+      <button class='btn primary' id='btnAutoPilotDay'>AUTO PILOT 100% DIA</button>
+      <button class='btn danger' id='btnStopAutoPilot'>PARAR AUTO PILOT</button>
+      <div class='hint' id='autoPilotStatus'>Auto pilot: aguardando comando.</div>
     </div>
   </div>
 
@@ -458,6 +462,77 @@ function viewTreino(){
   $('#btnAutoSerie').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec',{onEnd:()=>startWorkoutTimer(ex.rest,'rest')}); };
   $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
   $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
+
+  function repFromRange(rangeTxt){
+    const t=String(rangeTxt||'8').split('-').map((x)=>Number(String(x).trim().replace(/[^0-9]/g,''))).filter(Boolean);
+    if(!t.length) return 8;
+    return Math.round((t[0]+(t[1]||t[0]))/2);
+  }
+  function recommendLoadForExercise(name){
+    const hist=S.training.history.filter((x)=>x.exercise===name).slice(-6);
+    if(!hist.length) return 0;
+    const avg=hist.reduce((a,x)=>a+(x.sets?.[0]?.load||0),0)/hist.length;
+    return Math.max(0, Math.round((avg+1)*2)/2);
+  }
+  async function runAutoPilotDay(){
+    if(autoPilot.running) return;
+    if(!S.training.program.session || !S.training.program.session.active){
+      S.training.program.session={active:true,exIndex:0,setNo:1};
+    }
+    autoPilot.running=true;
+    const totalSets=exercises.reduce((a,e)=>a+e.sets,0);
+    autoPilot.totalSets=totalSets;
+    mentorSpeak('Auto pilot iniciado. Vou te guiar em todo o treino.');
+    showToast('AUTO PILOT ON');
+
+    const step = () => {
+      if(!autoPilot.running) return;
+      const ex=currentProgramExercise();
+      if(!ex){
+        autoPilot.running=false;
+        $('#autoPilotStatus').textContent='Auto pilot: treino concluído.';
+        mentorSpeak('Treino completo. Excelente consistência.');
+        showToast('AUTO PILOT finalizado');
+        render();
+        return;
+      }
+      const reps=repFromRange(ex.reps);
+      const load=recommendLoadForExercise(ex.name);
+      autoPilot.currentExercise=ex.name;
+      autoPilot.currentSet=S.training.program.session.setNo;
+      $('#autoPilotStatus').textContent=`Auto pilot: ${ex.name} • série ${autoPilot.currentSet}/${ex.sets}`;
+
+      mentorSpeak(`Execute ${ex.name}. Série ${autoPilot.currentSet} de ${ex.sets}. ${ex.tip}`);
+      const execSec=Math.max(1, tempoToSec(ex.tempo)*reps);
+      startWorkoutTimer(execSec,'exec',{onEnd:()=>{
+        if(!autoPilot.running) return;
+        const entry={date:k, group:dayKey, exercise:ex.name, sets:[{reps,load}], note:`AUTO PILOT • RPE ${ex.rpe} • tempo ${ex.tempo}`};
+        S.training.history.push(entry);
+        setLastAction({type:'trainSet',entry});
+        addXP(26,'train');
+        adjustIntegrity(+1);
+        advanceProgramSet();
+        saveState();
+
+        if(!currentProgramExercise()){ step(); return; }
+        mentorSpeak('Início do descanso. Respire pelo nariz e prepare a próxima série.');
+        startWorkoutTimer(ex.rest,'rest',{onEnd:()=>{
+          if(!autoPilot.running) return;
+          step();
+        }});
+      }});
+    };
+    step();
+  }
+
+  $('#btnAutoPilotDay').onclick=runAutoPilotDay;
+  $('#btnStopAutoPilot').onclick=()=>{
+    autoPilot.running=false;
+    stopWorkoutTimer();
+    $('#autoPilotStatus').textContent='Auto pilot: parado manualmente.';
+    mentorSpeak('Auto pilot interrompido.');
+    showToast('AUTO PILOT OFF');
+  };
   $('#btnConcluirSerie').onclick=()=>{
     const ex=currentProgramExercise();
     if(!ex) return showToast('Sem sessão ativa');
