@@ -1,0 +1,6 @@
+{
+  "areas": ["identidade", "shape", "beleza", "financeiro", "academico", "espiritual", "social", "internet", "intelectual", "mental", "organizacao"],
+  "configDefaults": ["objective", "weight", "bf", "activity", "strictMode", "scanlines", "sound", "bgMusic", "volume"],
+  "tasks": "customTasksByDate",
+  "music": "storedAsDataUrlOffline"
+}
