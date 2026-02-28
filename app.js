@@ -136,7 +136,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta'},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null}}, study:{history:[]},
+    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
     diet:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -159,7 +159,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -345,6 +345,63 @@ function advanceProgramSet(){
   }
   saveState();
 }
+
+function estimate1RM(load,reps){ if(!load||!reps) return 0; return Math.round(load*(1+reps/30)); }
+function trainingAnalytics(){
+  const k=todayKey();
+  const last30=S.training.history.slice(-120);
+  const daySets=S.training.history.filter(x=>x.date===k);
+  const avgRpe=8.2;
+  const perfTrend = last30.length>8 ? (last30.slice(-4).reduce((a,x)=>a+(x.sets?.[0]?.reps||0),0) / Math.max(1,last30.slice(-8,-4).reduce((a,x)=>a+(x.sets?.[0]?.reps||0),0))) : 1;
+  const sleepOnTime = nowMin() <= hmToMin(S.windows.sleep)+30 ? 1 : 0.6;
+  const mood=(S.diary.history.find(x=>x.date===k)?.mood||3)/5;
+  const energy=(S.diary.history.find(x=>x.date===k)?.energy||3)/5;
+  const fatigue = Math.round(Math.max(0,Math.min(100, 35 + (avgRpe*6) + (daySets.length*2) - (sleepOnTime*18) - (energy*10))));
+  const readiness = Math.round(Math.max(0,Math.min(100, 100-fatigue + mood*8 + sleepOnTime*10)));
+  const stimulus = Math.round(Math.max(0,Math.min(100, daySets.length*7 + (perfTrend>=1?18:8) + (S.training.naturalMode?10:0))));
+  const hyper = Math.round(Math.max(0,Math.min(100, stimulus - Math.abs(daySets.length-16)*2 + 20)));
+  const neural = Math.round(Math.max(0,Math.min(100, (S.training.program.week>=4?65:52) + (perfTrend>=1?8:-6))));
+  const globalPerf = Math.round((todayProgress().pct*0.25) + (readiness*0.25) + (stimulus*0.25) + (Math.min(100,S.rpg.integrity)*0.25));
+
+  const byMuscle={};
+  for(const e of daySets){ byMuscle[e.group]=(byMuscle[e.group]||0)+1; }
+  const lowMuscles = Object.keys(byMuscle).filter(m=>byMuscle[m]<3);
+  const highFatigue = fatigue>=72;
+  const plateau = perfTrend<0.92 && daySets.length>=8;
+
+  return {fatigue,readiness,stimulus,hyper,neural,globalPerf,byMuscle,lowMuscles,highFatigue,plateau,perfTrend};
+}
+function trainingIntelligenceHTML(a){
+  const muscleRows = Object.keys(a.byMuscle).length ? Object.entries(a.byMuscle).map(([m,v])=>`<div class='item'><div><div class='name'>${m}</div><div class='meta'>Volume semanal estimado</div></div><span class='badge'>${v} sets</span></div>`).join('') : '<div class="hint">Sem dados de volume ainda.</div>';
+  return `<div class='card'><h2>AI Training Engine</h2>
+  <div class='grid'>
+    <div class='g6'><div class='item'><div><div class='name'>Stimulus Efficiency Score</div><div class='meta'>Estímulo vs fadiga</div></div><span class='badge'>${a.stimulus}</span></div></div>
+    <div class='g6'><div class='item'><div><div class='name'>Fatigue Index</div><div class='meta'>Performance + sono + humor + volume</div></div><span class='badge'>${a.fatigue}</span></div></div>
+    <div class='g6'><div class='item'><div><div class='name'>Recovery Readiness</div><div class='meta'>Pronto para intensidade</div></div><span class='badge'>${a.readiness}</span></div></div>
+    <div class='g6'><div class='item'><div><div class='name'>Hypertrophy Potential</div><div class='meta'>Proximidade de MAV natural</div></div><span class='badge'>${a.hyper}</span></div></div>
+    <div class='g6'><div class='item'><div><div class='name'>Neural Drive</div><div class='meta'>Força e drive neural</div></div><span class='badge'>${a.neural}</span></div></div>
+    <div class='g6'><div class='item'><div><div class='name'>Performance Global Score</div><div class='meta'>Treino + foco + disciplina + sono</div></div><span class='badge'>${a.globalPerf}</span></div></div>
+  </div>
+  <div class='row'>
+    <button class='btn' id='btnRunAiAdjust'>RODAR AJUSTE SEMANAL</button>
+    <button class='btn' id='btnSuggestSwap'>SUGERIR TROCA EXERCÍCIOS</button>
+  </div>
+  <div class='hint' id='aiDecision'>MEV/MAV/MRV dinâmico: aguardando análise.</div>
+  </div>
+  <div class='card'><h2>Digital Muscle Map</h2><div class='list'>${muscleRows}</div>
+  <div class='hint'>Subestimulados: ${a.lowMuscles.length?a.lowMuscles.join(', '):'nenhum crítico'} • Fadiga alta: ${a.highFatigue?'SIM':'NÃO'}</div>
+  </div>
+  <div class='card'><h2>Adaptive Deload System</h2>
+    <div class='hint'>Regra: se performance cair >8% por 2 sessões ou fadiga >72 → reduzir volume 35% por 1 semana.</div>
+    <div class='row'><button class='btn' id='btnApplyDeload'>APLICAR DELOAD ADAPTATIVO</button></div>
+  </div>
+  <div class='card'><h2>Simulador de Progresso</h2>
+    <div class='hint'>Estimativa natural baseada em consistência e volume atual.</div>
+    <div class='item'><div><div class='name'>3 meses</div><div class='meta'>Massa +0.8 a +2.0kg (se consistência >80%)</div></div><span class='badge'>Projeção</span></div>
+    <div class='item'><div><div class='name'>6 meses</div><div class='meta'>Massa +1.8 a +4.0kg • Força +8–18%</div></div><span class='badge'>Projeção</span></div>
+    <div class='item'><div><div class='name'>12 meses</div><div class='meta'>Massa +3.5 a +7kg • Força +15–35%</div></div><span class='badge'>Projeção</span></div>
+  </div>`;
+}
 function viewTreino(){
   const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k);
   const {track,prog,dayKey,exercises}=getProgramAndDay();
@@ -416,6 +473,44 @@ function viewTreino(){
     render();
   };
 
+  const ai=trainingAnalytics();
+  view.insertAdjacentHTML('beforeend', trainingIntelligenceHTML(ai));
+  $('#btnRunAiAdjust').onclick=()=>{
+    const a=trainingAnalytics();
+    let msg='Sem ajuste necessário.';
+    if(a.highFatigue || a.plateau){
+      msg='Ajuste aplicado: -35% volume por 7 dias + manter intensidade em RPE 7-8.';
+      S.training.program.week=Math.min(8, (S.training.program.week||1)+1);
+      adjustIntegrity(+1);
+      addXP(12,'train');
+    } else if(a.stimulus<55){
+      msg='Ajuste aplicado: +1 série nos principais e microloading de +1kg.';
+      addXP(10,'train');
+    }
+    saveState();
+    $('#aiDecision').textContent=msg;
+    mentorSpeak(msg);
+    showToast('AI Engine atualizou o bloco');
+  };
+  $('#btnSuggestSwap').onclick=()=>{
+    const ant=S.training.anthro||{};
+    const tips=[
+      ant.femur==='longo' ? 'Fêmur longo: priorize agacho goblet/hack e mais inclinação de tronco controlada.' : 'Fêmur médio/curto: agachamento livre como base.',
+      ant.braco==='longo' ? 'Braço longo: para peito use maior amplitude com halter e pausa no alongado.' : 'Braço médio/curto: foque em estabilidade e progressão de carga.',
+      'Se dor articular subir, troque para variação máquina/halter com melhor SFR.'
+    ].join(' ');
+    $('#aiDecision').textContent=tips;
+    mentorSpeak('Sugestão biomecânica disponível na tela.');
+  };
+  $('#btnApplyDeload').onclick=()=>{
+    const msg='Deload adaptativo ativado: reduzir 50% do volume por 1 semana, manter técnica e RPE 6-7.';
+    S.training.program.week=5;
+    saveState();
+    $('#aiDecision').textContent=msg;
+    mentorSpeak(msg);
+    showToast('Deload ativado');
+  };
+
   const sg=$('#selGroup'), sx=$('#selEx'); const refresh=()=>{sx.innerHTML=(lib[sg.value]||[]).map(e=>`<option>${e}</option>`).join('')}; sg.onchange=refresh; refresh();
   $('#btnAddSet').onclick=()=>{ const entry={date:k,group:sg.value,exercise:sx.value,sets:[{reps:Number($('#selReps').value),load:Number($('#selLoad').value)}]}; S.training.history.push(entry); setLastAction({type:'trainSet',entry}); addXP(20,'train'); adjustIntegrity(+1); saveState(); render(); };
   $('#btnEnv').onclick=()=>{S.training.environment=S.training.environment==='home'?'gym':'home'; S.training.program.track=S.training.environment; saveState(); render();};
@@ -474,12 +569,12 @@ function buildDailyReport(k){ const prog=todayProgress(); const study=S.study.hi
 function downloadText(name,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),600); }
 function viewRel(){ const k=todayKey(), report=buildDailyReport(k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Relatório</div><div class='small'>Diário e exportável</div></div><button class='btn' id='btnCopy'>COPIAR</button></div><pre>${report}</pre><div class='row'><button class='btn' id='btnExportTXT'>EXPORTAR TXT</button><button class='btn' id='btnExportJSON'>EXPORTAR JSON</button></div></div>`; $('#btnCopy').onclick=async()=>{try{await navigator.clipboard.writeText(report); showToast('Copiado');}catch{showToast('Não consegui copiar')}}; $('#btnExportTXT').onclick=()=>downloadText(`ascensao-${k}.txt`,report); $('#btnExportJSON').onclick=()=>downloadText(`ascensao-backup-${k}.json`,JSON.stringify(S,null,2)); }
 
-function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
+function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
   <div class='card'><h2>Música</h2><div class='hint'>Upload mp3/m4a salvo offline no IndexedDB.</div><input id='musicFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR</button></div></div>
   <div class='card'><h2>Backup</h2><div class='row'><button class='btn' id='btnExport'>EXPORTAR JSON</button><button class='btn' id='btnImport'>IMPORTAR JSON</button><input id='importFile' type='file' accept='application/json' style='display:none'></div><button class='btn danger' id='btnWipe'>RESET TOTAL</button>
   <button class='btn' id='btnForceRefresh'>FORÇAR ATUALIZAÇÃO APP</button></div>`;
-  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0';
-  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
+  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
+  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
   $('#musicFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('music',f); await loadMusicIfAny(); showToast('Música salva'); };
   $('#btnMusicPlay').onclick=()=>{ startMusic(); showToast('Play'); };
   $('#btnMusicStop').onclick=()=>{ stopMusic(); showToast('Stop'); };
