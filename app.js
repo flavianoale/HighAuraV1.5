@@ -14,6 +14,31 @@ const BIBLE_PLAN = [
 ];
 const FIN_CATS = ['Alimentação','Treino','Higiene','Casa','Carro','Estudos','Projetos','Outros'];
 
+
+const PERSONAL_PROFILE_DEFAULT = {
+  weightKg:86,
+  heightCm:171,
+  age:23,
+  bodyFatPct:25,
+  trainingYears:1,
+  trainingConsistency:'0-1 ano real',
+  currentGym:'casa',
+  goals:['Estética','Hipertrofia natural máxima','Força como consequência','Performance atlética secundária'],
+  weakPoints:['Abdômen','Peitoral superior','Deltoide lateral','Largura de costas','Visual facial (redução de BF)'],
+  style:'Hardcore agressivo com técnica disciplinada'
+};
+
+const EXERCISE_VISUALS = {
+  db_floor_press:'assets/exercises/db-floor-press.svg',
+  pull_up:'assets/exercises/pull-up.svg',
+  goblet_squat:'assets/exercises/goblet-squat.svg',
+  rdl_db:'assets/exercises/rdl.svg',
+  lateral_raise:'assets/exercises/lateral-raise.svg',
+  curl:'assets/exercises/curl.svg',
+  triceps_ext:'assets/exercises/triceps-ext.svg',
+  calf_raise:'assets/exercises/calf-raise.svg'
+};
+
 function mkMeal(name, kcal, p, c, g){ return {name,kcal,p,c,g}; }
 const MEALS = {
   cafe:[mkMeal('Ovos + pão',430,22,40,20),mkMeal('Ovos + aveia',520,28,55,22),mkMeal('Iogurte + banana + aveia',420,20,62,10),mkMeal('Sanduíche frango',540,38,58,14)],
@@ -185,6 +210,7 @@ function defaultState(){
     diary:{history:[]}, streakLog:{},
     ui:{drawerOpen:true, dopamineFx:true, attrs:{forca:55,vitalidade:52,foco:48,carisma:45,disciplina:50,sabedoria:47}},
     modeChange:{enabled:false, durationMin:45, active:null},
+    profile:{...PERSONAL_PROFILE_DEFAULT},
     features:{
       mentorVoice:true, beeps:true, vibrateFx:true, auto10sWarn:true, autoWindowRedirect:true,
       strictNavigation:true, dopaminePopups:true, comboDecay:true, workoutAutoFlow:true,
@@ -207,7 +233,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, profile:{...d.profile,...(st.profile||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
@@ -634,11 +660,15 @@ function trainingIntelligenceHTML(a){
 }
 function viewTreino(){
   const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k);
+  const week=S.training.program.week||1;
   const phaseObj=getProgramBlock(week);
   const weeklyStats=getWeeklyMuscleStats();
   const deterministic=generateDeterministicWorkout({days:env==='home'?4:5, environment:env==='home'?'casa':'academia', level:'intermediario', phase:phaseObj.phase, weeklyStats});
   const autoDeload=shouldAutoDeload(weeklyStats);
   const globalScore=computePerformanceGlobalScore();
+  const profile=S.profile||PERSONAL_PROFILE_DEFAULT;
+  const weakTargets=(profile.weakPoints||[]).join(' • ');
+  const coachTone=profile.style||'Hardcore técnico';
   const {track,prog,dayKey,exercises}=getProgramAndDay();
   if(autoDeload && S.training.program.week!==5){
     S.training.program.week=5;
@@ -661,9 +691,11 @@ function viewTreino(){
   <div class='row'><button class='btn primary' id='btnStartProgram'>INICIAR SESSÃO PROGRAMADA</button><button class='btn' id='btnResetProgram'>RESETAR SESSÃO</button></div>
   </div>
 
+  <div class='card'><h2>Coach Briefing Personalizado</h2><div class='list'><div class='item'><div><div class='name'>Seu perfil</div><div class='meta'>${profile.weightKg}kg • ${profile.heightCm}cm • ${profile.age} anos • BF ${profile.bodyFatPct}% • treino consistente ${profile.trainingConsistency}</div></div><span class='badge'>Personalizado</span></div><div class='item'><div><div class='name'>Objetivo principal</div><div class='meta'>${(profile.goals||[]).join(' • ')}</div></div><span class='badge'>Foco</span></div><div class='item'><div><div class='name'>Pontos fracos atacados</div><div class='meta'>${weakTargets}</div></div><span class='badge'>Prioridade</span></div><div class='item'><div><div class='name'>Estilo do treinador</div><div class='meta'>${coachTone}. Sem enrolação: execução perfeita, progressão contínua e consistência diária.</div></div><span class='badge'>Hardcore</span></div></div></div>
+
   <div class='card'><h2>Plano do dia (${dayKey})</h2><div class='list'>${exercises.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.sets}x${e.reps} • RPE ${e.rpe} • tempo ${e.tempo} • descanso ${Math.round(e.rest/60)}-${e.rest%60?':30':''} min<br>${e.tip}</div></div><span class='badge'>${e.sets} sets</span></div>`).join('')}</div></div>
 
-  <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}</div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
+  <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div style='display:flex; gap:10px; align-items:center'><img class='ex-thumb' src='${EXERCISE_VISUALS[e.id]||'assets/icon.svg'}' alt='${e.name}'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}<br>Explicação: ${e.primary_muscle_id==='chest'?'Peitoral superior e estabilidade de ombro.':e.primary_muscle_id==='back'?'Largura dorsal e força de puxada.':e.primary_muscle_id==='delts'?'Deltoide lateral para estética 3D.':e.primary_muscle_id==='quads'?'Base de força e pernas densas.':e.primary_muscle_id==='hamstrings'?'Posterior forte para proteção lombar.':'Foco local com técnica.'}</div></div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
 
   <div class='card'><h2>Runner da sessão</h2>
     <div class='kpi'><div><div class='big'>${session.active && exNow ? exNow.name : 'Sessão parada'}</div><div class='small'>${session.active && exNow ? `Exercício ${session.exIndex+1}/${exercises.length} • Série ${session.setNo}/${exNow.sets}` : 'Inicie para executar com timers em segundos.'}</div></div><span class='badge' id='workTimerState'>${workoutTimer.mode==='rest'?'DESCANSO':'EXECUÇÃO'}</span></div>
@@ -713,7 +745,9 @@ function viewTreino(){
     S.training.performance.push(perf);
     const met=calcSetDeterministicMetrics(perf, exDef);
     const top=Number(String(ex.reps).split('-').pop())||8;
-    showToast(`${progressionRule(perf, top)} • eReps ${met.effectiveReps.toFixed(1)} • Int ${(met.intensity*100).toFixed(0)}%`);
+    const progMsg=`${progressionRule(perf, top)} • eReps ${met.effectiveReps.toFixed(1)} • Int ${(met.intensity*100).toFixed(0)}%`;
+    showToast(progMsg);
+    mentorSpeak(`Boa série. ${progMsg}. Disciplina técnica acima de tudo.`);
     setLastAction({type:'trainSet',entry});
     addXP(24,'train');
     adjustIntegrity(+1);

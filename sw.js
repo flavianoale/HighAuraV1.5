@@ -1,4 +1,4 @@
-const CACHE = 'ascensao-os-pro-v3';
+const CACHE = 'ascensao-os-pro-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,15 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './assets/icon.svg',
-  './assets/icon-maskable.svg'
+  './assets/icon-maskable.svg',
+  './assets/exercises/db-floor-press.svg',
+  './assets/exercises/pull-up.svg',
+  './assets/exercises/goblet-squat.svg',
+  './assets/exercises/rdl.svg',
+  './assets/exercises/lateral-raise.svg',
+  './assets/exercises/curl.svg',
+  './assets/exercises/triceps-ext.svg',
+  './assets/exercises/calf-raise.svg'
 ];
 
 self.addEventListener('install', (e) => {

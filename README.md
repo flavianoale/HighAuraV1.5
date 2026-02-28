@@ -8,6 +8,7 @@ Versão expandida e mais interativa, inspirada no app de referência (agora com 
 - Treino programado completo (Casa e Academia) com runner de sessão e timers segundo a segundo para execução e descanso.
 - Mentor por áudio (TTS + bipes): início execução, início descanso, aviso de 10s restantes e fim de fase.
 - AI Training Engine: scores proprietários (Stimulus Efficiency, Fatigue Index, Recovery Readiness, Hypertrophy Potential, Neural Drive), digital muscle map, deload adaptativo e Performance Global Score.
+- Aba Treino com guia explicativo personalizado (perfil físico/objetivo), treinador com cues determinísticos e imagens offline dos exercícios.
 - Tarefas com horário (criar/concluir/apagar) integradas no dia.
 - Config avançada (objetivo, macros automáticas, janelas do dia, strict mode, CRT, som, música e volume).
 - Música offline via IndexedDB (upload, play, stop e apagar).
