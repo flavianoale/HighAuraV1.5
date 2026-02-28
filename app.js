@@ -373,6 +373,128 @@ function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.th
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
+
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function toMinutes(hhmm){ const [h,m]=(hhmm||'00:00').split(':').map(Number); return (h*60)+(m||0); }
+function rankFromXP(xp){ let r=RANKS[0].name; for(const rk of RANKS){ if(xp>=rk.min) r=rk.name; } return r; }
+function addXP(amount=0){
+  S.rpg.xp=Math.max(0, Number(S.rpg.xp||0)+Number(amount||0));
+  S.rpg.level=Math.max(1, Math.floor(S.rpg.xp/300)+1);
+  S.rpg.rank=rankFromXP(S.rpg.xp);
+  S.rpg.combo=Math.min(999, Number(S.rpg.combo||0)+(amount>0?1:0));
+}
+function adjustIntegrity(delta=0){ S.rpg.integrity=clamp(Number(S.rpg.integrity||100)+Number(delta||0),0,100); }
+
+function currentMissionWindow(now=new Date()){
+  const mins=(now.getHours()*60)+now.getMinutes();
+  const w=S.windows||{};
+  const plan=[
+    {id:'wake',tab:'PROTO',title:'Acordar / Protocolo da manhã',at:toMinutes(w.wake)},
+    {id:'study',tab:'ESTUDO',title:'Estudo profundo',at:toMinutes(w.studyStart)},
+    {id:'work',tab:'OPS',title:'Execução de trabalho/projetos',at:toMinutes(w.workStart)},
+    {id:'train',tab:'TREINO',title:'Treino do dia',at:toMinutes(w.trainStart)},
+    {id:'night',tab:'PROTO',title:'Protocolo noturno',at:toMinutes(w.nightStart)},
+    {id:'sleep',tab:'DASH',title:'Encerrar e dormir no horário',at:toMinutes(w.sleep)}
+  ].sort((a,b)=>a.at-b.at);
+  let current=plan[0];
+  for(const item of plan){ if(mins>=item.at) current=item; }
+  return current;
+}
+
+function todayProgress(){
+  const k=todayKey();
+  const studyMin=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+Number(b.minutes||0),0);
+  const trainSets=S.training.history.filter(x=>x.date===k).reduce((a,b)=>a+((b.sets||[]).length||1),0);
+  const hasBible=!!S.bibleLog[k];
+  const proto=Array.isArray(S.proto.history)?S.proto.history.filter(x=>x.date===k):[];
+  const hasProto=proto.length>0;
+  const hasDiet=S.diet.history.some(x=>x.date===k);
+  const checks=[studyMin>=25,trainSets>=3,hasBible,hasProto,hasDiet];
+  const done=checks.filter(Boolean).length;
+  return {done,total:checks.length,pct:Math.round((done/checks.length)*100),studyMin,trainSets,hasBible,hasProto,hasDiet};
+}
+
+function refreshHUD(){
+  const mission=currentMissionWindow();
+  const d1=Math.max(1, Math.floor((Date.now()-new Date(S.campaignStart||Date.now()).getTime())/86400000)+1);
+  const setText=(id,val)=>{ const el=$(id); if(el) el.textContent=String(val); };
+  setText('#hudLevel', S.rpg.level||1);
+  setText('#hudXP', S.rpg.xp||0);
+  setText('#hudRank', S.rpg.rank||rankFromXP(S.rpg.xp||0));
+  setText('#hudInt', S.rpg.integrity||100);
+  setText('#hudStreak', S.rpg.streak||0);
+  setText('#hudCombo', S.rpg.combo||0);
+  setText('#phaseBadge', `D${d1}`);
+  setText('#missionLine', `MISSÃO DO MOMENTO: ${mission.title}`);
+}
+
+function renderTabs(){
+  const items=[
+    ['DASH','HUD'],['PROTO','Protocolo'],['DIETA','Dieta'],['TREINO','Treino'],['ESTUDO','Estudo'],
+    ['BIBLIA','Bíblia'],['TASKS','Tarefas'],['SOCIAL','Social'],['OPS','Projetos'],['LOG','Finanças'],
+    ['DIARIO','Diário'],['REL','Relatórios'],['CFG','Config']
+  ];
+  tabs.innerHTML=items.map(([id,label])=>`<button class="tab ${activeTab===id?'active':''}" data-tab="${id}">${label}</button>`).join('');
+  tabs.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ activeTab=b.dataset.tab; render(); });
+}
+
+function ensureModeChangeValidity(){
+  const mc=S.modeChange||{};
+  if(!mc.enabled || !mc.active) return;
+  const startMs=Number(mc.active.startedAt||0);
+  const durMin=Number(mc.durationMin||45);
+  if(!startMs) return;
+  if((Date.now()-startMs)>(durMin*60000)) S.modeChange.active=null;
+}
+
+function ensureDietToday(){
+  const k=todayKey();
+  let row=S.diet.history.find(x=>x.date===k);
+  if(!row){ row={date:k,meals:[]}; S.diet.history.push(row); }
+  return row;
+}
+function sumDiet(day){
+  const meals=(day&&Array.isArray(day.meals))?day.meals:[];
+  return meals.reduce((a,m)=>({kcal:a.kcal+Number(m.kcal||0),p:a.p+Number(m.p||0),c:a.c+Number(m.c||0),g:a.g+Number(m.g||0)}),{kcal:0,p:0,c:0,g:0});
+}
+
+function viewHUD(){
+  const p=todayProgress();
+  const win=currentMissionWindow();
+  view.innerHTML=`<div class='card'><h2>Painel do Dia</h2><div class='kpi'><div><div class='big'>${p.pct}%</div><div class='small'>Pilares concluídos (${p.done}/${p.total})</div></div><div><div class='big'>${win.tab}</div><div class='small'>Missão atual: ${win.title}</div></div></div><div class='progress'><div style='width:${p.pct}%'></div></div></div>
+  <div class='card'><h2>Status rápido</h2><div class='list'>
+    <div class='item'><div><div class='name'>Estudo</div><div class='meta'>${p.studyMin} min hoje</div></div><span class='badge'>${p.studyMin>=25?'OK':'PENDENTE'}</span></div>
+    <div class='item'><div><div class='name'>Treino</div><div class='meta'>${p.trainSets} sets hoje</div></div><span class='badge'>${p.trainSets>=3?'OK':'PENDENTE'}</span></div>
+    <div class='item'><div><div class='name'>Bíblia</div><div class='meta'>Leitura do dia</div></div><span class='badge'>${p.hasBible?'OK':'PENDENTE'}</span></div>
+    <div class='item'><div><div class='name'>Protocolo</div><div class='meta'>Rotina manhã/noite</div></div><span class='badge'>${p.hasProto?'OK':'PENDENTE'}</span></div>
+    <div class='item'><div><div class='name'>Dieta</div><div class='meta'>Registro alimentar</div></div><span class='badge'>${p.hasDiet?'OK':'PENDENTE'}</span></div>
+  </div></div>`;
+}
+
+function viewProtocolo(){
+  const k=todayKey();
+  const row=(Array.isArray(S.proto.history)?S.proto.history:[]).find(x=>x.date===k) || {date:k,morning:false,night:false};
+  view.innerHTML=`<div class='card'><h2>Protocolo diário</h2><div class='hint'>Marque execução de rotina.</div>
+    <div class='row'><button class='btn ${row.morning?'primary':'ghost'}' id='btnMorning'>MANHÃ ${row.morning?'✓':''}</button>
+    <button class='btn ${row.night?'primary':'ghost'}' id='btnNight'>NOITE ${row.night?'✓':''}</button></div></div>`;
+  const up=(key)=>{ let target=S.proto.history.find(x=>x.date===k); if(!target){ target={date:k,morning:false,night:false}; S.proto.history.push(target); } target[key]=!target[key]; if(target.morning||target.night) addXP(10,'proto'); adjustIntegrity(target[key]?1:-1); saveState(); render(); };
+  $('#btnMorning').onclick=()=>up('morning');
+  $('#btnNight').onclick=()=>up('night');
+}
+
+function viewDieta(){
+  const day=ensureDietToday();
+  const totals=sumDiet(day);
+  view.innerHTML=`<div class='card'><h2>Dieta</h2><div class='small'>Meta: ${S.targets.kcal} kcal • P ${S.targets.p}g • C ${S.targets.c}g • G ${S.targets.g}g</div>
+  <div class='kpi'><div><div class='big'>${Math.round(totals.kcal)}</div><div class='small'>kcal hoje</div></div><div><div class='big'>${Math.round(totals.p)}g</div><div class='small'>proteína</div></div></div>
+  <div class='row'><button class='btn' id='btnMealCafe'>+ Café padrão</button><button class='btn' id='btnMealAlmoco'>+ Almoço padrão</button></div>
+  <div class='list'>${day.meals.length?day.meals.map((m,i)=>`<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>${m.kcal} kcal • P${m.p} C${m.c} G${m.g}</div></div><button class='btn danger' data-delmeal='${i}'>Apagar</button></div>`).join(''):'<div class="hint">Nenhuma refeição registrada.</div>'}</div></div>`;
+  const addMeal=(key)=>{ const meal=(MEALS[key]||[])[0]; if(!meal) return; day.meals.push({...meal}); addXP(6,'diet'); saveState(); render(); };
+  $('#btnMealCafe').onclick=()=>addMeal('cafe');
+  $('#btnMealAlmoco').onclick=()=>addMeal('almoco');
+  view.querySelectorAll('[data-delmeal]').forEach(b=>b.onclick=()=>{ day.meals.splice(Number(b.dataset.delmeal),1); saveState(); render(); });
+}
+
 function applyTheme(){ document.body.classList.toggle('crt', !!(S.theme&&S.theme.crt)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
