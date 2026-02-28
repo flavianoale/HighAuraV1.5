@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ASCENSÃO OS PRO</title>
+  <meta name="theme-color" content="#00ff66" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </div>
+  <div id="start" class="start" aria-hidden="false">
+    <div class="box">
+      <div class="title">ASCENSÃO OS PRO</div>
+      <div class="sub">RPG da vida real. Ação real → XP real. Campanha de 90 dias.</div>
+      <div class="grid">
+        <div class="g12">
+          <label>Classe inicial</label>
+          <select id="startClass">
+            <option value="conquistador">Conquistador</option>
+            <option value="guerreiro">Guerreiro</option>
+            <option value="estrategista">Estrategista</option>
+            <option value="monge">Monge</option>
+          </select>
+        </div>
+        <div class="g12"><button id="btnStart" class="btn primary wide">START</button></div>
+      </div>
+      <div class="hint">START também libera áudio/música no iOS.</div>
+    </div>
+  </div>
+
+  <header>
+    <div class="topbar">
+      <div class="brand">
+        <div class="t">ASCENSÃO OS <span class="badge" id="phaseBadge">D1</span></div>
+        <div class="s" id="missionLine">MISSÃO DO MOMENTO: —</div>
+      </div>
+      <div class="hud">
+        <div class="pill">Nível <b id="hudLevel">1</b></div>
+        <div class="pill">XP <b id="hudXP">0</b></div>
+        <div class="pill">Rank <b id="hudRank">Recruta</b></div>
+        <div class="pill">Integridade <b id="hudInt">100</b></div>
+        <div class="pill">Streak <b id="hudStreak">0</b></div>
+        <div class="pill combo">Combo <b id="hudCombo">0</b></div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+
+  <main class="wrap">
+    <section id="view"></section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="sheet">
+      <div class="kpi">
+        <div>
+          <div class="big" id="modalTitle">Detalhes</div>
+          <div class="small" id="modalSub">—</div>
+        </div>
+        <button class="btn ghost" id="modalClose">Fechar</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+  </script>
+</body>
+</html>
