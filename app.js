@@ -28,6 +28,41 @@ const PERSONAL_PROFILE_DEFAULT = {
   style:'Hardcore agressivo com técnica disciplinada'
 };
 
+const PERSONAL_TRAINING_DB = {
+  program_name:'Fase 1 - Recomp Estética 12 Semanas',
+  user_profile:{weight:86,height:171,bodyfat_estimated:25,level:'iniciante_intermediario',focus:['peito_superior','deltoide_lateral','largura_costas','abdomen']},
+  schedule:{split:'upper_lower_4x',days:['Upper_A','Lower_A','Rest','Upper_B','Lower_B']},
+  home:{
+    title:'Treino em Casa — Halteres + Barra Fixa',
+    weekly:['Seg Upper A','Ter Lower A','Qui Upper B','Sex Lower B'],
+    sessions:[
+      {name:'Upper_A', estimated_duration_minutes:60, exercises:[
+        {name:'Barra Fixa Pronada',sets:4,reps_range:[6,8],cadence_seconds:{eccentric:3,pause:1,concentric:2},rest_seconds:180,RPE_target:8,type:'compound',muscle:'Costas'},
+        {name:'Supino Inclinado Halter',sets:4,reps_range:[8,12],cadence_seconds:{eccentric:3,pause:1,concentric:1},rest_seconds:120,RPE_target:8,type:'compound',muscle:'Peito superior'},
+        {name:'Remada Unilateral Halter',sets:3,reps_range:[8,12],cadence_seconds:{eccentric:2,pause:1,concentric:2},rest_seconds:120,RPE_target:8,type:'compound',muscle:'Costas'},
+        {name:'Elevação Lateral',sets:5,reps_range:[12,20],cadence_seconds:{eccentric:2,pause:1,concentric:2},rest_seconds:75,RPE_target:9,type:'isolation',muscle:'Deltoide lateral'},
+        {name:'Crunch + Prancha',sets:3,reps_range:[12,20],cadence_seconds:{eccentric:2,pause:1,concentric:2},rest_seconds:60,RPE_target:9,type:'core',muscle:'Abdômen'}
+      ]},
+      {name:'Lower_A', estimated_duration_minutes:55, exercises:[
+        {name:'Goblet Squat',sets:4,reps_range:[8,12],cadence_seconds:{eccentric:3,pause:1,concentric:1},rest_seconds:150,RPE_target:8,type:'compound',muscle:'Quadríceps'},
+        {name:'RDL Halter',sets:4,reps_range:[8,12],cadence_seconds:{eccentric:3,pause:1,concentric:1},rest_seconds:120,RPE_target:8,type:'compound',muscle:'Posterior'},
+        {name:'Búlgaro',sets:3,reps_range:[8,12],cadence_seconds:{eccentric:2,pause:1,concentric:2},rest_seconds:120,RPE_target:9,type:'compound',muscle:'Quadríceps/Glúteo'},
+        {name:'Panturrilha Unilateral',sets:5,reps_range:[10,15],cadence_seconds:{eccentric:1,pause:2,concentric:1},rest_seconds:60,RPE_target:9,type:'isolation',muscle:'Panturrilha'}
+      ]}
+    ]
+  },
+  gym:{
+    title:'Treino Academia — Pró Natural',
+    weekly:['Push','Pull','Legs','Upper','Lower'],
+    sessions:[
+      {name:'Push', estimated_duration_minutes:70, exercises:[
+        {name:'Supino Inclinado',sets:4,reps_range:[6,8],cadence_seconds:{eccentric:3,pause:1,concentric:1},rest_seconds:180,RPE_target:8,type:'compound',muscle:'Peito superior'},
+        {name:'Elevação Lateral',sets:5,reps_range:[12,20],cadence_seconds:{eccentric:2,pause:1,concentric:2},rest_seconds:60,RPE_target:9,type:'isolation',muscle:'Deltoide lateral'}
+      ]}
+    ]
+  }
+};
+
 const EXERCISE_VISUALS = {
   db_floor_press:'assets/exercises/db-floor-press.svg',
   pull_up:'assets/exercises/pull-up.svg',
@@ -227,6 +262,8 @@ let timer = {running:false, total:0, left:0, startedAt:0, paused:false, topic:''
 let timerInterval;
 let workoutTimer = {running:false, mode:'idle', left:0, total:0, startedAt:0, paused:false};
 let workoutInterval;
+let cadenceRunner={running:false,phase:'idle',label:'Pronto',left:0,rep:0,targetReps:0,set:1,targetSets:1,startedAt:0,pause:false,log:[]};
+let cadenceInterval;
 
 const $ = (q)=>document.querySelector(q);
 const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
@@ -285,6 +322,63 @@ function microPulse(el){
   el.classList.add('pulse-hit');
   setTimeout(()=>el.classList.remove('pulse-hit'), 320);
 }
+
+function cadenceSpeak(type, ctx={}){
+  if(type==='eccentric') return mentorSpeak('Controla a descida.');
+  if(type==='pause') return mentorSpeak('Segura.');
+  if(type==='concentric') return mentorSpeak('Sobe firme.');
+  if(type==='rest') return mentorSpeak('Recupera. Próxima série pesada.');
+  if(type==='last') return mentorSpeak('Última série. Técnica acima do ego.');
+  if(type==='fatigue') return mentorSpeak('Controle total. Não acelere.');
+  if(type==='start') return mentorSpeak(`Iniciando ${ctx.name||'exercício'}. Posição perfeita.`);
+}
+
+function cadenceStartPhase(sec, label, onEnd){
+  cadenceRunner.phase=label;
+  cadenceRunner.label=label;
+  cadenceRunner.left=sec;
+  cadenceRunner.startedAt=Date.now();
+  clearInterval(cadenceInterval);
+  cadenceInterval=setInterval(()=>{
+    if(!cadenceRunner.running || cadenceRunner.pause) return;
+    cadenceRunner.left=Math.max(0, sec - Math.floor((Date.now()-cadenceRunner.startedAt)/1000));
+    const big=$('#cadBig'); const lbl=$('#cadLabel'); const rep=$('#cadRepLine');
+    if(big) big.textContent=fmtTimerSec(cadenceRunner.left);
+    if(lbl) lbl.textContent=cadenceRunner.label;
+    if(rep) rep.textContent=`REP ${cadenceRunner.rep}/${cadenceRunner.targetReps} • SÉRIE ${cadenceRunner.set}/${cadenceRunner.targetSets}`;
+    if(cadenceRunner.left<=0){ clearInterval(cadenceInterval); if(onEnd) onEnd(); }
+  },250);
+}
+
+function startCadenceSetFlow(exObj, opts={}){
+  const reps=opts.repsTarget||Math.round((exObj.reps_range?.[0]+exObj.reps_range?.[1])/2)||8;
+  cadenceRunner={...cadenceRunner,running:true,pause:false,rep:1,targetReps:reps,set:opts.setNo||1,targetSets:opts.sets||exObj.sets||1,log:[]};
+  cadenceSpeak('start',{name:exObj.name});
+  const cad=exObj.cadence_seconds||{eccentric:3,pause:1,concentric:1};
+  const runRep=()=>{
+    cadenceStartPhase(cad.eccentric,'Descida',()=>{
+      cadenceSpeak('eccentric');
+      cadenceStartPhase(cad.pause,'Pausa',()=>{
+        cadenceSpeak('pause');
+        cadenceStartPhase(cad.concentric,'Subida',()=>{
+          cadenceSpeak('concentric');
+          if(cadenceRunner.rep < cadenceRunner.targetReps){ cadenceRunner.rep+=1; runRep(); }
+          else {
+            cadenceRunner.running=false;
+            cadenceRunner.label='Execução concluída';
+            const big=$('#cadBig'); if(big) big.textContent='00:00';
+            const rest=scientificRestSeconds({type:exObj.type, primary_muscle_id:(exObj.muscle||'').toLowerCase().includes('pant')?'calves':'chest'}, cadenceRunner.set>=cadenceRunner.targetSets);
+            cadenceSpeak('rest');
+            startWorkoutTimer(rest,'rest');
+          }
+        });
+      });
+    });
+  };
+  runRep();
+}
+
+function stopCadenceFlow(){ cadenceRunner.running=false; clearInterval(cadenceInterval); cadenceRunner.label='Interrompido'; const big=$('#cadBig'); if(big) big.textContent='00:00'; }
 
 async function forceRefreshApp(){
   try{
@@ -669,6 +763,8 @@ function viewTreino(){
   const profile=S.profile||PERSONAL_PROFILE_DEFAULT;
   const weakTargets=(profile.weakPoints||[]).join(' • ');
   const coachTone=profile.style||'Hardcore técnico';
+  const personalSource = env==='home' ? PERSONAL_TRAINING_DB.home : PERSONAL_TRAINING_DB.gym;
+  const personalSession = personalSource.sessions.find(s=>dayKey.toLowerCase().includes((s.name||'').toLowerCase().replace('_',''))) || personalSource.sessions[0];
   const {track,prog,dayKey,exercises}=getProgramAndDay();
   if(autoDeload && S.training.program.week!==5){
     S.training.program.week=5;
@@ -693,6 +789,8 @@ function viewTreino(){
 
   <div class='card'><h2>Coach Briefing Personalizado</h2><div class='list'><div class='item'><div><div class='name'>Seu perfil</div><div class='meta'>${profile.weightKg}kg • ${profile.heightCm}cm • ${profile.age} anos • BF ${profile.bodyFatPct}% • treino consistente ${profile.trainingConsistency}</div></div><span class='badge'>Personalizado</span></div><div class='item'><div><div class='name'>Objetivo principal</div><div class='meta'>${(profile.goals||[]).join(' • ')}</div></div><span class='badge'>Foco</span></div><div class='item'><div><div class='name'>Pontos fracos atacados</div><div class='meta'>${weakTargets}</div></div><span class='badge'>Prioridade</span></div><div class='item'><div><div class='name'>Estilo do treinador</div><div class='meta'>${coachTone}. Sem enrolação: execução perfeita, progressão contínua e consistência diária.</div></div><span class='badge'>Hardcore</span></div></div></div>
 
+  <div class='card'><h2>Guia Intuitivo (passo a passo)</h2><div class='hint'>Aquecimento 8-10 min: mobilidade 2 min + 2 séries rampa no primeiro exercício. Regra de progressão: topo da faixa com RPE ≤8 = +2% carga.</div><div class='list'>${(personalSession?.exercises||[]).map((e,i)=>`<div class='item'><div><div class='name'>${i+1}) ${e.name}</div><div class='meta'>${e.sets} séries • ${e.reps_range[0]}-${e.reps_range[1]} reps • RPE ${e.RPE_target} • Cadência ${e.cadence_seconds.eccentric}-${e.cadence_seconds.pause}-${e.cadence_seconds.concentric} • Descanso ${e.rest_seconds}s<br>Coach: ${e.type==='compound'?'Controle técnico e sem ego.':'Busca conexão mente-músculo total.'}</div></div><span class='badge'>${e.muscle}</span></div>`).join('')}</div></div>
+
   <div class='card'><h2>Plano do dia (${dayKey})</h2><div class='list'>${exercises.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.sets}x${e.reps} • RPE ${e.rpe} • tempo ${e.tempo} • descanso ${Math.round(e.rest/60)}-${e.rest%60?':30':''} min<br>${e.tip}</div></div><span class='badge'>${e.sets} sets</span></div>`).join('')}</div></div>
 
   <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div style='display:flex; gap:10px; align-items:center'><img class='ex-thumb' src='${EXERCISE_VISUALS[e.id]||'assets/icon.svg'}' alt='${e.name}'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}<br>Explicação: ${e.primary_muscle_id==='chest'?'Peitoral superior e estabilidade de ombro.':e.primary_muscle_id==='back'?'Largura dorsal e força de puxada.':e.primary_muscle_id==='delts'?'Deltoide lateral para estética 3D.':e.primary_muscle_id==='quads'?'Base de força e pernas densas.':e.primary_muscle_id==='hamstrings'?'Posterior forte para proteção lombar.':'Foco local com técnica.'}</div></div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
@@ -714,6 +812,18 @@ function viewTreino(){
     </div>
   </div>
 
+  <div class='card'><h2>Timer de Cadência Real</h2>
+    <div class='kpi'><div><div class='big' id='cadLabel'>${cadenceRunner.label||'Pronto'}</div><div class='small' id='cadRepLine'>REP ${cadenceRunner.rep||0}/${cadenceRunner.targetReps||0} • SÉRIE ${cadenceRunner.set||1}/${cadenceRunner.targetSets||1}</div></div><span class='badge'>E-P-C</span></div>
+    <div class='big' id='cadBig'>${fmtTimerSec(cadenceRunner.left||0)}</div>
+    <div class='row'>
+      <button class='btn primary' id='btnCadenceStart'>INICIAR TIMER CADÊNCIA</button>
+      <button class='btn' id='btnCadencePause'>PAUSAR/RETOMAR</button>
+      <button class='btn danger' id='btnCadenceStop'>PARAR</button>
+      <button class='btn' id='btnCadenceAdvance'>AVANÇAR MANUAL</button>
+    </div>
+    <div class='hint'>Execução: Descida → Pausa → Subida por rep. Descanso com aviso nos 10s finais.</div>
+  </div>
+
   <div class='card'><h2>Registro rápido manual</h2><div class='kpi'><div><div class='big'>Treino manual</div><div class='small'>Ambiente: ${env==='home'?'Casa':'Academia'} • sets hoje: ${today.length}</div></div></div><div class='grid'><div class='g6'><label>Grupo</label><select id='selGroup'>${Object.keys(lib).map(g=>`<option>${g}</option>`).join('')}</select></div><div class='g6'><label>Exercício</label><select id='selEx'></select></div><div class='g6'><label>Reps</label><select id='selReps'><option>5</option><option>8</option><option>10</option><option>12</option><option>15</option></select></div><div class='g6'><label>Carga</label><select id='selLoad'><option>0</option><option>5</option><option>10</option><option>15</option><option>20</option><option>30</option><option>40</option></select></div><div class='g12'><button class='btn primary wide' id='btnAddSet'>REGISTRAR 1 SET</button></div></div></div>
 
   <div class='card'><h2>Sets de hoje</h2><div class='list'>${today.length?today.map((x,i)=>`<div class='item'><div><div class='name'>${x.group} • ${x.exercise}</div><div class='meta'>${x.sets[0].reps} reps • ${x.sets[0].load}kg</div></div><span class='badge'>#${i+1}</span></div>`).join(''):'<div class="hint">Nenhum set.</div>'}</div><div class='row'><button class='btn' id='btnTrainUndo'>DESFAZER</button><button class='btn danger' id='btnTrainReset'>RESET HOJE</button></div></div>`;
@@ -733,6 +843,16 @@ function viewTreino(){
   $('#btnAutoSerie').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); if(featureOn('workoutAutoFlow')) startWorkoutTimer(execSec,'exec',{onEnd:()=>startWorkoutTimer(ex.rest,'rest')}); else startWorkoutTimer(execSec,'exec'); };
   $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
   $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
+  $('#btnCadenceStart').onclick=()=>{
+    const ex=currentProgramExercise();
+    const template=(personalSession?.exercises||[])[0];
+    const source = template || {name:ex?.name||'Exercício', reps_range:[8,10], cadence_seconds:{eccentric:3,pause:1,concentric:1}, sets:ex?.sets||3, rest_seconds:120, type:'compound', muscle:'Peito'};
+    if(autoDeload) cadenceSpeak('fatigue');
+    startCadenceSetFlow(source,{repsTarget:Math.round((source.reps_range[0]+source.reps_range[1])/2),setNo:(S.training.program.session?.setNo||1),sets:(source.sets||3)});
+  };
+  $('#btnCadencePause').onclick=()=>{ cadenceRunner.pause=!cadenceRunner.pause; showToast(cadenceRunner.pause?'Cadência pausada':'Cadência retomada'); };
+  $('#btnCadenceStop').onclick=()=>{ stopCadenceFlow(); showToast('Cadência encerrada'); };
+  $('#btnCadenceAdvance').onclick=()=>{ clearInterval(cadenceInterval); cadenceRunner.left=0; showToast('Avanço manual registrado'); };
   $('#btnConcluirSerie').onclick=()=>{
     const ex=currentProgramExercise();
     if(!ex) return showToast('Sem sessão ativa');
