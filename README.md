@@ -17,3 +17,7 @@ Versão expandida e mais interativa, inspirada no app de referência:
 python -m http.server 4173
 ```
 Acesse `http://localhost:4173`.
+
+
+## Atualização
+- Se o navegador mostrar versão antiga (cache), use em Config: **FORÇAR ATUALIZAÇÃO APP**.

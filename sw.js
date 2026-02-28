@@ -1,4 +1,4 @@
-const CACHE = 'ascensao-os-pro-v2';
+const CACHE = 'ascensao-os-pro-v3';
 const ASSETS = [
   './',
   './index.html',
