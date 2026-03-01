@@ -111,6 +111,38 @@ const TRAINING_PROGRAMS = {
 };
 
 
+
+const MUSCLE_GROUPS = [
+  {id:'chest', name:'Peito', MEV:6, MAV_min:10, MAV_max:16, MRV:20, rest_compound_seconds:180, rest_isolation_seconds:90, tempo_default:'3-1-1', fatigue_factor:1.0},
+  {id:'back', name:'Costas', MEV:8, MAV_min:12, MAV_max:18, MRV:22, rest_compound_seconds:180, rest_isolation_seconds:90, tempo_default:'2-1-2', fatigue_factor:1.1},
+  {id:'quads', name:'Quadríceps', MEV:6, MAV_min:10, MAV_max:16, MRV:20, rest_compound_seconds:180, rest_isolation_seconds:90, tempo_default:'3-1-1', fatigue_factor:1.2},
+  {id:'hamstrings', name:'Posterior', MEV:6, MAV_min:10, MAV_max:14, MRV:18, rest_compound_seconds:170, rest_isolation_seconds:90, tempo_default:'3-1-1', fatigue_factor:1.2},
+  {id:'delts', name:'Deltoide lateral', MEV:6, MAV_min:10, MAV_max:18, MRV:22, rest_compound_seconds:150, rest_isolation_seconds:75, tempo_default:'2-1-2', fatigue_factor:0.9},
+  {id:'biceps', name:'Bíceps', MEV:4, MAV_min:8, MAV_max:14, MRV:18, rest_compound_seconds:120, rest_isolation_seconds:75, tempo_default:'3-1-2', fatigue_factor:0.8},
+  {id:'triceps', name:'Tríceps', MEV:4, MAV_min:8, MAV_max:14, MRV:18, rest_compound_seconds:120, rest_isolation_seconds:75, tempo_default:'2-1-2', fatigue_factor:0.85},
+  {id:'calves', name:'Panturrilha', MEV:6, MAV_min:10, MAV_max:16, MRV:20, rest_compound_seconds:75, rest_isolation_seconds:60, tempo_default:'1-2-1', fatigue_factor:0.7}
+];
+
+const EXERCISES_DB = [
+  {id:'db_floor_press', name:'Supino halteres no chão', primary_muscle_id:'chest', secondary_muscle_id:'triceps', type:'compound', resistance_curve:'mid', stimulus_multiplier:1.0, fatigue_multiplier:1.0, equipment_type:'casa'},
+  {id:'pull_up', name:'Barra fixa', primary_muscle_id:'back', secondary_muscle_id:'biceps', type:'compound', resistance_curve:'lengthened', stimulus_multiplier:1.1, fatigue_multiplier:1.1, equipment_type:'ambos'},
+  {id:'goblet_squat', name:'Agachamento goblet', primary_muscle_id:'quads', secondary_muscle_id:'hamstrings', type:'compound', resistance_curve:'lengthened', stimulus_multiplier:1.1, fatigue_multiplier:1.2, equipment_type:'casa'},
+  {id:'rdl_db', name:'RDL com halteres', primary_muscle_id:'hamstrings', secondary_muscle_id:'back', type:'compound', resistance_curve:'lengthened', stimulus_multiplier:1.05, fatigue_multiplier:1.15, equipment_type:'ambos'},
+  {id:'lateral_raise', name:'Elevação lateral', primary_muscle_id:'delts', secondary_muscle_id:'triceps', type:'isolation', resistance_curve:'shortened', stimulus_multiplier:0.95, fatigue_multiplier:0.75, equipment_type:'ambos'},
+  {id:'curl', name:'Rosca alternada', primary_muscle_id:'biceps', secondary_muscle_id:'back', type:'isolation', resistance_curve:'lengthened', stimulus_multiplier:0.95, fatigue_multiplier:0.7, equipment_type:'ambos'},
+  {id:'triceps_ext', name:'Tríceps francês', primary_muscle_id:'triceps', secondary_muscle_id:'chest', type:'isolation', resistance_curve:'lengthened', stimulus_multiplier:0.95, fatigue_multiplier:0.75, equipment_type:'ambos'},
+  {id:'calf_raise', name:'Panturrilha', primary_muscle_id:'calves', secondary_muscle_id:'quads', type:'isolation', resistance_curve:'lengthened', stimulus_multiplier:0.9, fatigue_multiplier:0.6, equipment_type:'ambos'}
+];
+
+const PROGRAM_BLOCKS = [
+  {phase:'Base', week_start:1, week_end:3, RPE_min:7.5, RPE_max:8.5, volume_multiplier:1.0},
+  {phase:'Intensification', week_start:4, week_end:4, RPE_min:8.5, RPE_max:9.2, volume_multiplier:0.9},
+  {phase:'Deload', week_start:5, week_end:5, RPE_min:6, RPE_max:6.5, volume_multiplier:0.65},
+  {phase:'Base', week_start:6, week_end:8, RPE_min:7.8, RPE_max:8.8, volume_multiplier:1.05}
+];
+
+const REP_TO_1RM_PCT = {4:0.85,6:0.80,8:0.75,10:0.70,12:0.65};
+
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
@@ -145,7 +177,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
+    training:{environment:'home',history:[],performance:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
     diet:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -175,7 +207,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
@@ -359,6 +391,107 @@ function getProgramAndDay(){
 }
 function tempoToSec(tempo){ return String(tempo).split('-').map((n)=>Number(n)||0).reduce((a,b)=>a+b,0); }
 function fmtTimerSec(sec){ const s=Math.max(0,Math.floor(sec)); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+
+function getProgramBlock(week){ return PROGRAM_BLOCKS.find(b=>week>=b.week_start&&week<=b.week_end) || PROGRAM_BLOCKS[0]; }
+function estimate1RM(weight,reps){ if(!weight||!reps) return 0; return weight*(1+reps/30); }
+function getExerciseDefByName(name){ return EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase().split(' ')[0])) || EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase())) || null; }
+function getMuscle(id){ return MUSCLE_GROUPS.find(m=>m.id===id); }
+function calcSetDeterministicMetrics(perf, exDef){
+  const effectiveReps = perf.RPE >= 8 ? Math.max(0, perf.reps - (10 - perf.RPE)) : 0;
+  const est1RM = estimate1RM(perf.weight, perf.reps) || perf.weight;
+  const intensity = est1RM>0 ? perf.weight / est1RM : 0;
+  const stimulus = effectiveReps * intensity * (exDef?.stimulus_multiplier||1);
+  return {effectiveReps, intensity, stimulus, est1RM};
+}
+function getWeeklyMuscleStats(){
+  const since=Date.now()-7*86400000;
+  const stats={};
+  for(const m of MUSCLE_GROUPS){ stats[m.id]={weeklyEffectiveReps:0,weeklySets:0,fatigue:0,status:'subestimulado'}; }
+  for(const p of (S.training.performance||[])){
+    const t=new Date(p.date).getTime(); if(Number.isNaN(t)||t<since) continue;
+    const ex=EXERCISES_DB.find(e=>e.id===p.exercise_id); if(!ex) continue;
+    const met=calcSetDeterministicMetrics(p, ex);
+    const prime=stats[ex.primary_muscle_id];
+    if(prime){ prime.weeklyEffectiveReps += met.effectiveReps; prime.weeklySets += 1; }
+  }
+  for(const m of MUSCLE_GROUPS){
+    const st=stats[m.id];
+    st.fatigue = st.weeklyEffectiveReps * m.fatigue_factor;
+    if(st.weeklySets < m.MAV_min) st.status='subestimulado';
+    else if(st.weeklySets <= m.MAV_max) st.status='ideal';
+    else if(st.weeklySets > m.MRV) st.status='excesso';
+    else st.status='alto';
+  }
+  return stats;
+}
+function performanceDropTwoSessions(exerciseId){
+  const arr=(S.training.performance||[]).filter(x=>x.exercise_id===exerciseId).slice(-3);
+  if(arr.length<3) return false;
+  const score=(x)=>x.weight*Math.max(1,x.reps);
+  const p1=score(arr[arr.length-3]), p2=score(arr[arr.length-2]), p3=score(arr[arr.length-1]);
+  if(!p1||!p2||!p3) return false;
+  const d1=(p2-p1)/p1*100, d2=(p3-p2)/p2*100;
+  return d1<-8 && d2<-8;
+}
+function shouldAutoDeload(stats){
+  const fatigueHigh = Object.values(stats).some(v=>v.fatigue>120);
+  const drop = EXERCISES_DB.some(e=>performanceDropTwoSessions(e.id));
+  return fatigueHigh || drop;
+}
+function scientificRestSeconds(exDef, isLastSet=false){
+  let rest=90;
+  const m=getMuscle(exDef?.primary_muscle_id||'');
+  if(exDef?.primary_muscle_id==='calves') rest= Math.max(60, Math.min(75, m?.rest_isolation_seconds||60));
+  else if(exDef?.type==='compound') rest = Math.max(150, Math.min(210, m?.rest_compound_seconds||180));
+  else rest = Math.max(60, Math.min(120, m?.rest_isolation_seconds||90));
+  if(isLastSet) rest += 20;
+  return rest;
+}
+function deterministicTTS(exDef, phase, fatigueHigh, lastSet, step){
+  const muscle=getMuscle(exDef?.primary_muscle_id||'')?.name || 'grupo alvo';
+  if(step==='pre') return `Posicione corretamente para ${muscle}. Controle total.`;
+  if(step==='exec'){ const tempo=(getMuscle(exDef?.primary_muscle_id||'')?.tempo_default||'3-1-1').replaceAll('-', '...'); return `Execução ${tempo}.`; }
+  if(step==='rest') return exDef?.type==='compound' ? 'Recuperação neural. Prepare-se para a próxima.' : 'Recupere a musculatura e mantenha técnica perfeita.';
+  if(fatigueHigh) return 'Reduza intensidade e mantenha execução perfeita.';
+  if(lastSet) return 'Foco máximo na técnica.';
+  return phase==='Intensification' ? 'Bloco intenso, controle total.' : 'Execução limpa e consistente.';
+}
+function generateDeterministicWorkout(input){
+  const {days, environment, level, phase, weeklyStats}=input;
+  const split = days<=3 ? 'Full Body' : days===4 ? 'Upper/Lower' : 'Push/Pull/Legs';
+  const block = PROGRAM_BLOCKS.find(b=>b.phase===phase) || PROGRAM_BLOCKS[0];
+  const globalScore = computePerformanceGlobalScore().score;
+  const scoreAdjust = globalScore<60 ? 0.95 : 1;
+  const volMult = block.volume_multiplier * scoreAdjust;
+  const repRange = phase==='Intensification' ? {compound:'4-6',isolation:'8-10'} : phase==='Deload' ? {compound:'6-8',isolation:'6-8'} : {compound:'6-8',isolation:'8-12'};
+  const pool = EXERCISES_DB.filter(e=>e.equipment_type===environment||e.equipment_type==='ambos');
+  const main=pool.filter(e=>e.type==='compound');
+  const iso=pool.filter(e=>e.type==='isolation');
+  const len=pool.filter(e=>e.resistance_curve==='lengthened');
+  const setsBase = level==='iniciante'?2:level==='intermediario'?3:4;
+  return {
+    split, block, repRange,
+    distribution:{main:Math.round(setsBase*0.4*10)/10, secondary:Math.round(setsBase*0.3*10)/10, iso:Math.round(setsBase*0.2*10)/10, lengthened:Math.round(setsBase*0.1*10)/10},
+    picks:[main[0], main[1], iso[0], len[0]].filter(Boolean),
+    volumeMultiplier: Number(volMult.toFixed(2)),
+    weeklyStats
+  };
+}
+function progressionRule(perf, rangeTop){
+  if(perf.reps>=rangeTop && perf.RPE<=8) return 'Aumentar carga +2%';
+  if(perf.RPE>=9.5) return 'Manter carga atual';
+  if(perf.reps<rangeTop) return 'Reduzir carga -2%';
+  return 'Manter';
+}
+function computePerformanceGlobalScore(){
+  const k=todayKey();
+  const treino=Math.min(100, Math.round((S.training.history.filter(x=>x.date===k).length/8)*100));
+  const sleep = nowMin() <= hmToMin(S.windows.sleep)+30 ? 78 : 52;
+  const disciplina=Math.round(todayProgress().pct);
+  const foco=Math.round(((S.diary.history.find(x=>x.date===k)?.focus||3)/5)*100);
+  const score=Math.round(treino*0.40 + sleep*0.25 + disciplina*0.20 + foco*0.15);
+  return {treino,sleep,disciplina,foco,score};
+}
 function mentorSpeak(text){
   if(!S.sounds.enabled || !featureOn('mentorVoice') || !('speechSynthesis' in window)) return;
   try{
@@ -501,11 +634,20 @@ function trainingIntelligenceHTML(a){
 }
 function viewTreino(){
   const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k);
+  const phaseObj=getProgramBlock(week);
+  const weeklyStats=getWeeklyMuscleStats();
+  const deterministic=generateDeterministicWorkout({days:env==='home'?4:5, environment:env==='home'?'casa':'academia', level:'intermediario', phase:phaseObj.phase, weeklyStats});
+  const autoDeload=shouldAutoDeload(weeklyStats);
+  const globalScore=computePerformanceGlobalScore();
   const {track,prog,dayKey,exercises}=getProgramAndDay();
+  if(autoDeload && S.training.program.week!==5){
+    S.training.program.week=5;
+    showToast('Deload automático: volume 0.65x e RPE alvo 6');
+    saveState();
+  }
   if(!S.training.program.session) S.training.program.session={active:false,exIndex:0,setNo:1};
   const session=S.training.program.session;
   const exNow=currentProgramExercise();
-  const week=S.training.program.week||1;
   const phaseTxt = week<=3 ? 'Base (RPE 7.5–8.5)' : week===4 ? 'Intensificação (RPE 9)' : week===5 ? 'Deload (50%)' : 'Bloco pesado';
 
   view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Treino Programado</div><div class='small'>${prog.label} • ${prog.weekly}</div></div><button class='btn' id='btnEnv'>TROCAR AMBIENTE</button></div>
@@ -520,6 +662,8 @@ function viewTreino(){
   </div>
 
   <div class='card'><h2>Plano do dia (${dayKey})</h2><div class='list'>${exercises.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.sets}x${e.reps} • RPE ${e.rpe} • tempo ${e.tempo} • descanso ${Math.round(e.rest/60)}-${e.rest%60?':30':''} min<br>${e.tip}</div></div><span class='badge'>${e.sets} sets</span></div>`).join('')}</div></div>
+
+  <div class='card'><h2>Core Fisiológico Determinístico</h2><div class='hint'>Split ${deterministic.split} • Bloco ${deterministic.block.phase} (${deterministic.block.RPE_min}-${deterministic.block.RPE_max}) • Mult volume ${deterministic.volumeMultiplier}</div><div class='list'>${deterministic.picks.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.type} • curva ${e.resistance_curve} • estímulo ${e.stimulus_multiplier}</div></div><span class='badge'>${e.type==='compound'?deterministic.repRange.compound:deterministic.repRange.isolation}</span></div>`).join('')}</div><div class='item'><div><div class='name'>Distribuição por sessão</div><div class='meta'>40% composto principal • 30% composto secundário • 20% isolador • 10% alongada</div></div><span class='badge'>ok</span></div><div class='item'><div><div class='name'>Deload automático</div><div class='meta'>${autoDeload?'ATIVAR: fadiga/queda > limiar':'Normal'} • queda >8% em 2 sessões = -20% volume</div></div><span class='badge'>${autoDeload?'DELOAD':'NORMAL'}</span></div><div class='list'>${MUSCLE_GROUPS.map(m=>{const st=weeklyStats[m.id]; return `<div class='item'><div><div class='name'>${m.name}</div><div class='meta'>eReps ${st.weeklyEffectiveReps.toFixed(1)} • fadiga ${st.fatigue.toFixed(1)} • sets ${st.weeklySets}</div></div><span class='badge'>${st.status}</span></div>`}).join('')}</div><div class='item'><div><div class='name'>PerformanceGlobalScore</div><div class='meta'>Treino ${globalScore.treino}% • Sono ${globalScore.sleep}% • Disciplina ${globalScore.disciplina}% • Foco ${globalScore.foco}%</div></div><span class='badge'>${globalScore.score}</span></div><div class='row'><button class='btn' id='btnDetApplyDeload'>APLICAR DELOAD 0.65x</button></div></div>
 
   <div class='card'><h2>Runner da sessão</h2>
     <div class='kpi'><div><div class='big'>${session.active && exNow ? exNow.name : 'Sessão parada'}</div><div class='small'>${session.active && exNow ? `Exercício ${session.exIndex+1}/${exercises.length} • Série ${session.setNo}/${exNow.sets}` : 'Inicie para executar com timers em segundos.'}</div></div><span class='badge' id='workTimerState'>${workoutTimer.mode==='rest'?'DESCANSO':'EXECUÇÃO'}</span></div>
@@ -549,9 +693,11 @@ function viewTreino(){
   $('#trainWeek').oninput=(e)=>{ S.training.program.week=Number(e.target.value); saveState(); render(); };
   $('#btnStartProgram').onclick=()=>{ S.training.program.session={active:true,exIndex:0,setNo:1}; saveState(); showToast('Sessão iniciada'); render(); };
   $('#btnResetProgram').onclick=()=>{ S.training.program.session={active:false,exIndex:0,setNo:1}; stopWorkoutTimer(); saveState(); render(); };
+  const detDeload=$('#btnDetApplyDeload');
+  if(detDeload) detDeload.onclick=()=>{ S.training.program.week=5; exercises.forEach(e=>{ e.sets=Math.max(1, Math.round(e.sets*0.65)); e.rpe='6'; }); showToast('Deload aplicado: volume 0.65x e RPE 6'); saveState(); render(); };
 
-  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec'); };
-  $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); startWorkoutTimer(ex.rest,'rest'); };
+  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, false, 'pre')); const execSec=Math.max(1,tempoToSec((getMuscle(exDef.primary_muscle_id)?.tempo_default)||ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec'); mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, false, 'exec')); };
+  $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const ses=S.training.program.session||{setNo:1}; const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; const rest=scientificRestSeconds(exDef, ses.setNo>=ex.sets); startWorkoutTimer(rest,'rest'); mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, ses.setNo>=ex.sets, 'rest')); };
   $('#btnAutoSerie').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); if(featureOn('workoutAutoFlow')) startWorkoutTimer(execSec,'exec',{onEnd:()=>startWorkoutTimer(ex.rest,'rest')}); else startWorkoutTimer(execSec,'exec'); };
   $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
   $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
@@ -562,6 +708,12 @@ function viewTreino(){
     const load=Number($('#doneLoad').value||0);
     const entry={date:k, group:dayKey, exercise:ex.name, sets:[{reps,load}], note:`RPE ${ex.rpe} • tempo ${ex.tempo}`};
     S.training.history.push(entry);
+    const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0];
+    const perf={exercise_id:exDef.id, weight:load, reps, RPE:Number(ex.rpe)||8, date:new Date().toISOString()};
+    S.training.performance.push(perf);
+    const met=calcSetDeterministicMetrics(perf, exDef);
+    const top=Number(String(ex.reps).split('-').pop())||8;
+    showToast(`${progressionRule(perf, top)} • eReps ${met.effectiveReps.toFixed(1)} • Int ${(met.intensity*100).toFixed(0)}%`);
     setLastAction({type:'trainSet',entry});
     addXP(24,'train');
     adjustIntegrity(+1);
