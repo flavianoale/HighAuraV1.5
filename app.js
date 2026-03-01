@@ -29,51 +29,138 @@ const PERSONAL_PROFILE_DEFAULT = {
 };
 
 const PERSONAL_TRAINING_DB = {
-  program_name:'Fase 1 - Recomp Estética Natural 12 Semanas',
-  version:'1.0',
-  duration_weeks:12,
-  split:'upper_lower_4x',
-  schedule:['Upper_A','Lower_A','Rest','Upper_B','Lower_B'],
-  progression_model:'double_progression',
-  global_rules:{
-    compound_rest_sec:150,
-    isolation_rest_sec:75,
-    last_set_extra_rest_sec:20,
-    deload_trigger:{performance_drop_percent:8,fatigue_threshold:75,volume_multiplier:0.65}
+  home:{
+    program_name:'Fase 1 - Recomp Estética Natural 12 Semanas',
+    split:'upper_lower_4x',
+    frequency_per_week:4,
+    schedule:['Upper_A','Lower_A','Rest','Upper_B','Lower_B'],
+    progression_model:'double_progression',
+    global_rules:{compound_rest_sec:150,isolation_rest_sec:75,last_set_extra_rest_sec:20,deload_trigger:{performance_drop_percent:8,fatigue_threshold:75,volume_multiplier:0.65}},
+    sessions:[
+      {name:'Upper_A',estimated_duration_min:60,exercises:[
+        {name:'Barra Fixa Pronada',sets:4,reps_range:[6,8],RPE:8,cadence:{eccentric:3,pause:1,concentric:2},rest:180,focus:'largura_dorsal',type:'compound',muscle:'Costas'},
+        {name:'Supino Inclinado Halter',sets:4,reps_range:[8,12],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:120,focus:'peitoral_superior',type:'compound',muscle:'Peito superior'},
+        {name:'Remada Unilateral Halter',sets:3,reps_range:[8,12],RPE:8,cadence:{eccentric:2,pause:1,concentric:2},rest:120,focus:'espessura_costas',type:'compound',muscle:'Costas'},
+        {name:'Elevação Lateral',sets:5,reps_range:[12,20],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:75,special:'ultima_serie_parciais',type:'isolation',muscle:'Deltoide lateral'},
+        {name:'Crunch Controlado',sets:3,reps_range:[12,20],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:60,type:'core',muscle:'Abdômen'}
+      ]},
+      {name:'Lower_A',estimated_duration_min:55,exercises:[
+        {name:'Goblet Squat',sets:4,reps_range:[8,12],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Quadríceps'},
+        {name:'RDL Halter',sets:4,reps_range:[8,12],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:120,type:'compound',muscle:'Posterior'},
+        {name:'Bulgarian Split Squat',sets:3,reps_range:[8,12],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:120,type:'compound',muscle:'Quadríceps/Glúteo'},
+        {name:'Panturrilha Unilateral',sets:5,reps_range:[10,15],RPE:9,cadence:{eccentric:1,pause:2,concentric:1},rest:60,type:'isolation',muscle:'Panturrilha'}
+      ]},
+      {name:'Upper_B',estimated_duration_min:60,exercises:[
+        {name:'Chin-Up',sets:4,reps_range:[5,8],RPE:8,cadence:{eccentric:3,pause:1,concentric:2},rest:180,type:'compound',muscle:'Costas'},
+        {name:'Supino Halter no Chão',sets:4,reps_range:[6,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Peito'},
+        {name:'Remada Curvada Halter',sets:3,reps_range:[8,12],RPE:9,cadence:{eccentric:3,pause:1,concentric:1},rest:120,type:'compound',muscle:'Costas'},
+        {name:'Elevação Lateral',sets:4,reps_range:[15,20],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:60,type:'isolation',muscle:'Deltoide lateral'},
+        {name:'Tríceps Francês',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:3,pause:1,concentric:1},rest:75,type:'isolation',muscle:'Tríceps'}
+      ]},
+      {name:'Lower_B',estimated_duration_min:55,exercises:[
+        {name:'Goblet Squat Pesado',sets:5,reps_range:[6,8],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:180,type:'compound',muscle:'Quadríceps'},
+        {name:'RDL Halter',sets:3,reps_range:[8,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Posterior'},
+        {name:'Passada Alternada',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:2,pause:0,concentric:2},rest:120,type:'compound',muscle:'Pernas'},
+        {name:'Panturrilha Bilateral',sets:4,reps_range:[12,20],RPE:9,cadence:{eccentric:1,pause:2,concentric:1},rest:60,type:'isolation',muscle:'Panturrilha'}
+      ]}
+    ]
   },
-  sessions:[
-    {name:'Upper_A',estimated_duration_minutes:60,exercises:[
-      {name:'Barra Fixa Pronada',sets:4,reps_range:[6,8],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:2},rest_sec:180,focus:'largura_dorsal',type:'compound',muscle:'Costas'},
-      {name:'Supino Inclinado Halter',sets:4,reps_range:[8,12],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:120,focus:'peitoral_superior',type:'compound',muscle:'Peito superior'},
-      {name:'Remada Unilateral Halter',sets:3,reps_range:[8,12],RPE_target:8,cadence:{eccentric:2,pause:1,concentric:2},rest_sec:120,focus:'espessura_costas',type:'compound',muscle:'Costas'},
-      {name:'Elevação Lateral',sets:5,reps_range:[12,20],RPE_target:9,cadence:{eccentric:2,pause:1,concentric:2},rest_sec:75,special:'ultima_serie_parciais',type:'isolation',muscle:'Deltoide lateral'},
-      {name:'Crunch Controlado',sets:3,reps_range:[12,20],RPE_target:9,cadence:{eccentric:2,pause:1,concentric:2},rest_sec:60,type:'core',muscle:'Abdômen'}
-    ]},
-    {name:'Lower_A',estimated_duration_minutes:55,exercises:[
-      {name:'Goblet Squat',sets:4,reps_range:[8,12],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:150,type:'compound',muscle:'Quadríceps'},
-      {name:'RDL Halter',sets:4,reps_range:[8,12],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:120,type:'compound',muscle:'Posterior'},
-      {name:'Bulgarian Split Squat',sets:3,reps_range:[8,12],RPE_target:9,cadence:{eccentric:2,pause:1,concentric:2},rest_sec:120,type:'compound',muscle:'Quadríceps/Glúteo'},
-      {name:'Panturrilha Unilateral',sets:5,reps_range:[10,15],RPE_target:9,cadence:{eccentric:1,pause:2,concentric:1},rest_sec:60,type:'isolation',muscle:'Panturrilha'}
-    ]},
-    {name:'Upper_B',estimated_duration_minutes:60,exercises:[
-      {name:'Chin-Up',sets:4,reps_range:[5,8],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:2},rest_sec:180,type:'compound',muscle:'Costas'},
-      {name:'Supino Halter no Chão',sets:4,reps_range:[6,10],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:150,type:'compound',muscle:'Peito'},
-      {name:'Remada Curvada Halter',sets:3,reps_range:[8,12],RPE_target:9,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:120,type:'compound',muscle:'Costas'},
-      {name:'Elevação Lateral',sets:4,reps_range:[15,20],RPE_target:9,cadence:{eccentric:2,pause:1,concentric:2},rest_sec:60,type:'isolation',muscle:'Deltoide lateral'},
-      {name:'Tríceps Francês',sets:3,reps_range:[10,14],RPE_target:9,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:75,type:'isolation',muscle:'Tríceps'}
-    ]},
-    {name:'Lower_B',estimated_duration_minutes:55,exercises:[
-      {name:'Goblet Squat Pesado',sets:5,reps_range:[6,8],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:180,type:'compound',muscle:'Quadríceps'},
-      {name:'RDL Halter',sets:3,reps_range:[8,10],RPE_target:8,cadence:{eccentric:3,pause:1,concentric:1},rest_sec:150,type:'compound',muscle:'Posterior'},
-      {name:'Passada Alternada',sets:3,reps_range:[10,14],RPE_target:9,cadence:{eccentric:2,pause:0,concentric:2},rest_sec:120,type:'compound',muscle:'Pernas'},
-      {name:'Panturrilha Bilateral',sets:4,reps_range:[12,20],RPE_target:9,cadence:{eccentric:1,pause:2,concentric:1},rest_sec:60,type:'isolation',muscle:'Panturrilha'}
-    ]}
-  ],
-  gym_future:{
-    title:'Treino Academia — Pró Natural',
-    schedule:['Push','Pull','Legs','Upper','Lower']
+  gym:{
+    program_name:'Academia Pro Natural 12 Semanas',
+    split:'push_pull_legs_upper_lower',
+    frequency_per_week:5,
+    sessions:[
+      {name:'Push',estimated_duration_min:75,exercises:[
+        {name:'Supino Inclinado Barra',sets:4,reps_range:[6,8],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:180,type:'compound',muscle:'Peito superior'},
+        {name:'Supino Reto Halter',sets:3,reps_range:[8,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Peito'},
+        {name:'Crucifixo Cabo',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:90,type:'isolation',muscle:'Peito'},
+        {name:'Elevação Lateral Máquina',sets:5,reps_range:[12,20],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:75,type:'isolation',muscle:'Deltoide lateral'},
+        {name:'Tríceps Corda',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:75,type:'isolation',muscle:'Tríceps'}
+      ]},
+      {name:'Pull',estimated_duration_min:75,exercises:[
+        {name:'Barra Fixa',sets:4,reps_range:[5,8],RPE:8,cadence:{eccentric:3,pause:1,concentric:2},rest:180,type:'compound',muscle:'Costas'},
+        {name:'Puxada Alta Neutra',sets:3,reps_range:[8,12],RPE:8,cadence:{eccentric:2,pause:1,concentric:2},rest:150,type:'compound',muscle:'Costas'},
+        {name:'Remada Baixa Cabo',sets:3,reps_range:[10,12],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:120,type:'compound',muscle:'Costas'},
+        {name:'Pullover Cabo',sets:3,reps_range:[12,15],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:90,type:'isolation',muscle:'Costas'},
+        {name:'Rosca Inclinado',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:3,pause:1,concentric:2},rest:90,type:'isolation',muscle:'Bíceps'}
+      ]},
+      {name:'Legs',estimated_duration_min:80,exercises:[
+        {name:'Agachamento Livre',sets:4,reps_range:[4,6],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:180,type:'compound',muscle:'Quadríceps'},
+        {name:'Leg Press',sets:3,reps_range:[8,12],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:150,type:'compound',muscle:'Quadríceps'},
+        {name:'Mesa Flexora',sets:3,reps_range:[10,14],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:120,type:'isolation',muscle:'Posterior'},
+        {name:'Panturrilha em Pé',sets:5,reps_range:[10,15],RPE:9,cadence:{eccentric:1,pause:2,concentric:1},rest:75,type:'isolation',muscle:'Panturrilha'}
+      ]},
+      {name:'Upper',estimated_duration_min:70,exercises:[
+        {name:'Supino Inclinado Halter',sets:3,reps_range:[8,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:120,type:'compound',muscle:'Peito superior'},
+        {name:'Remada Máquina',sets:3,reps_range:[10,12],RPE:8,cadence:{eccentric:2,pause:1,concentric:2},rest:120,type:'compound',muscle:'Costas'},
+        {name:'Puxada',sets:3,reps_range:[10,12],RPE:8,cadence:{eccentric:2,pause:1,concentric:2},rest:90,type:'compound',muscle:'Costas'},
+        {name:'Lateral',sets:4,reps_range:[15,20],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:60,type:'isolation',muscle:'Deltoide lateral'}
+      ]},
+      {name:'Lower',estimated_duration_min:70,exercises:[
+        {name:'Hack Squat',sets:4,reps_range:[8,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Quadríceps'},
+        {name:'RDL',sets:3,reps_range:[8,10],RPE:8,cadence:{eccentric:3,pause:1,concentric:1},rest:150,type:'compound',muscle:'Posterior'},
+        {name:'Extensora',sets:3,reps_range:[12,15],RPE:9,cadence:{eccentric:2,pause:1,concentric:2},rest:75,type:'isolation',muscle:'Quadríceps'},
+        {name:'Panturrilha Sentado',sets:4,reps_range:[12,20],RPE:9,cadence:{eccentric:1,pause:2,concentric:1},rest:60,type:'isolation',muscle:'Panturrilha'}
+      ]}
+    ]
   }
 };
+
+const TRAINING_SQL_SCHEMA = `CREATE TABLE muscle_groups (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50),
+  mev INT,
+  mav_min INT,
+  mav_max INT,
+  mrv INT,
+  rest_compound INT,
+  rest_isolation INT,
+  fatigue_factor DECIMAL(3,2)
+);
+
+CREATE TABLE exercises (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100),
+  primary_muscle_id INT REFERENCES muscle_groups(id),
+  type VARCHAR(20),
+  stimulus_multiplier DECIMAL(3,2),
+  fatigue_multiplier DECIMAL(3,2),
+  equipment_type VARCHAR(20)
+);
+
+CREATE TABLE programs (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100),
+  duration_weeks INT
+);
+
+CREATE TABLE sessions (
+  id SERIAL PRIMARY KEY,
+  program_id INT REFERENCES programs(id),
+  name VARCHAR(50)
+);
+
+CREATE TABLE session_exercises (
+  id SERIAL PRIMARY KEY,
+  session_id INT REFERENCES sessions(id),
+  exercise_id INT REFERENCES exercises(id),
+  sets INT,
+  rep_min INT,
+  rep_max INT,
+  rest INT,
+  cadence_ecc INT,
+  cadence_pause INT,
+  cadence_con INT
+);
+
+CREATE TABLE user_performance (
+  id SERIAL PRIMARY KEY,
+  exercise_id INT,
+  weight DECIMAL(6,2),
+  reps INT,
+  rpe DECIMAL(3,1),
+  date DATE
+);`;
 
 const EXERCISE_VISUALS = {
   db_floor_press:'assets/exercises/db-floor-press.svg',
@@ -249,7 +336,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[],performance:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
+    training:{environment:'home',history:[],performance:[],oneRMByExercise:{},program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
     diet:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -282,7 +369,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, profile:{...d.profile,...(st.profile||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, profile:{...d.profile,...(st.profile||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], oneRMByExercise:{...(d.training.oneRMByExercise||{}), ...((st.training&&st.training.oneRMByExercise)||{})}, program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
@@ -525,6 +612,22 @@ function tempoToSec(tempo){ return String(tempo).split('-').map((n)=>Number(n)||
 function fmtTimerSec(sec){ const s=Math.max(0,Math.floor(sec)); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
 
 function getProgramBlock(week){ return PROGRAM_BLOCKS.find(b=>week>=b.week_start&&week<=b.week_end) || PROGRAM_BLOCKS[0]; }
+function getPhase(week){
+  if (week <= 3) return 'base';
+  if (week === 4) return 'intensification';
+  if (week === 5) return 'deload';
+  if (week <= 8) return 'peak';
+  if (week === 9) return 'intensification';
+  if (week === 10) return 'deload';
+  return 'final_peak';
+}
+function phaseConfig(phase){
+  if(phase==='deload') return {volume_multiplier:0.65,rpe_target:6.5,load_multiplier:0.9};
+  if(phase==='intensification') return {volume_multiplier:0.9,rpe_target:8.8,load_multiplier:1.03};
+  if(phase==='peak') return {volume_multiplier:1.05,rpe_target:8.6,load_multiplier:1.02};
+  if(phase==='final_peak') return {volume_multiplier:1.08,rpe_target:8.9,load_multiplier:1.03};
+  return {volume_multiplier:1,rpe_target:8,load_multiplier:1};
+}
 function estimate1RM(weight,reps){ if(!weight||!reps) return 0; return weight*(1+reps/30); }
 function getExerciseDefByName(name){ return EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase().split(' ')[0])) || EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase())) || null; }
 function getMuscle(id){ return MUSCLE_GROUPS.find(m=>m.id===id); }
@@ -650,8 +753,8 @@ const ProgressionEngine = {
 };
 
 const ProgramGenerator = {
-  getHomeProgram(){ return PERSONAL_TRAINING_DB; },
-  getSession(name){ return PERSONAL_TRAINING_DB.sessions.find(s=>s.name===name) || PERSONAL_TRAINING_DB.sessions[0]; },
+  getProgram(env){ return env==='home' ? PERSONAL_TRAINING_DB.home : PERSONAL_TRAINING_DB.gym; },
+  getSession(name, env){ const p=this.getProgram(env); return p.sessions.find(s=>s.name===name) || p.sessions[0]; },
   applyPhaseVolume(session, volumeMultiplier){
     return {...session, exercises:session.exercises.map(e=>({...e, sets:TrainingEngine.adjustVolume(e.sets, volumeMultiplier)}))};
   },
@@ -786,7 +889,7 @@ function advanceProgramSet(){
   saveState();
 }
 
-function estimate1RM(load,reps){ if(!load||!reps) return 0; return Math.round(load*(1+reps/30)); }
+function estimate1RMRounded(load,reps){ if(!load||!reps) return 0; return Math.round(load*(1+reps/30)); }
 function trainingAnalytics(){
   const k=todayKey();
   const last30=S.training.history.slice(-120);
@@ -845,16 +948,18 @@ function trainingIntelligenceHTML(a){
 function viewTreino(){
   const env=S.training.environment, lib=env==='home'?HOME_WORKOUT:GYM_WORKOUT, k=todayKey(), today=S.training.history.filter(x=>x.date===k);
   const week=S.training.program.week||1;
-  const phaseObj=getProgramBlock(week);
+  const phaseName=getPhase(week);
+  const phaseObj=phaseConfig(phaseName);
+  const activeProgram=ProgramGenerator.getProgram(env);
   const weeklyStats=getWeeklyMuscleStats();
-  const deterministic=generateDeterministicWorkout({days:env==='home'?4:5, environment:env==='home'?'casa':'academia', level:'intermediario', phase:phaseObj.phase, weeklyStats});
+  const deterministic=generateDeterministicWorkout({days:env==='home'?4:5, environment:env==='home'?'casa':'academia', level:'intermediario', phase:phaseName==='base'?'Base':phaseName==='intensification'?'Intensification':phaseName==='deload'?'Deload':'Base', weeklyStats});
   const autoDeload=shouldAutoDeload(weeklyStats);
   const globalScore=computePerformanceGlobalScore();
   const profile=S.profile||PERSONAL_PROFILE_DEFAULT;
   const weakTargets=(profile.weakPoints||[]).join(' • ');
   const coachTone=profile.style||'Hardcore técnico';
   const {track,prog,dayKey,exercises}=getProgramAndDay();
-  const personalSession = ProgramGenerator.getSession(dayKey);
+  const personalSession = ProgramGenerator.getSession(dayKey, env);
   const sessionWithPhase = ProgramGenerator.applyPhaseVolume(personalSession, phaseObj.volume_multiplier || 1);
   const profileOneRM = Math.max(40, Math.round((S.targets.weightKg||86)*1.1));
   if(autoDeload && S.training.program.week!==5){
@@ -865,22 +970,22 @@ function viewTreino(){
   if(!S.training.program.session) S.training.program.session={active:false,exIndex:0,setNo:1};
   const session=S.training.program.session;
   const exNow=currentProgramExercise();
-  const phaseTxt = week<=3 ? 'Base (RPE 7.5–8.5)' : week===4 ? 'Intensificação (RPE 9)' : week===5 ? 'Deload (50%)' : 'Bloco pesado';
+  const phaseTxt = `${phaseName.toUpperCase()} (vol x${phaseObj.volume_multiplier})`;
 
-  view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Treino Programado</div><div class='small'>${prog.label} • ${prog.weekly}</div></div><button class='btn' id='btnEnv'>TROCAR AMBIENTE</button></div>
+  view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Treino Programado</div><div class='small'>${activeProgram.program_name} • ${activeProgram.split}</div></div><button class='btn' id='btnEnv'>TROCAR AMBIENTE</button></div>
   <div class='grid'>
     <div class='g6'><label>Plano</label><select id='trainTrack'><option value='home'>Casa</option><option value='gym'>Academia</option></select></div>
     <div class='g6'><label>Dia do treino</label><select id='trainDay'>${prog.split.map((d)=>`<option value='${d}'>${d}</option>`).join('')}</select></div>
-    <div class='g6'><label>Semana do bloco (1-8)</label><input id='trainWeek' type='range' min='1' max='8' step='1' value='${week}'></div>
+    <div class='g6'><label>Semana do bloco (1-12)</label><input id='trainWeek' type='range' min='1' max='12' step='1' value='${week}'></div>
     <div class='g6'><label>Fase atual</label><input value='${phaseTxt}' disabled></div>
   </div>
-  <div class='hint'>Periodização: ${prog.periodization}</div>
+  <div class='hint'>Periodização 12 semanas automática ativa.</div>
   <div class='row'><button class='btn primary' id='btnStartProgram'>INICIAR SESSÃO PROGRAMADA</button><button class='btn' id='btnResetProgram'>RESETAR SESSÃO</button></div>
   </div>
 
   <div class='card'><h2>Coach Briefing Personalizado</h2><div class='list'><div class='item'><div><div class='name'>Seu perfil</div><div class='meta'>${profile.weightKg}kg • ${profile.heightCm}cm • ${profile.age} anos • BF ${profile.bodyFatPct}% • treino consistente ${profile.trainingConsistency}</div></div><span class='badge'>Personalizado</span></div><div class='item'><div><div class='name'>Objetivo principal</div><div class='meta'>${(profile.goals||[]).join(' • ')}</div></div><span class='badge'>Foco</span></div><div class='item'><div><div class='name'>Pontos fracos atacados</div><div class='meta'>${weakTargets}</div></div><span class='badge'>Prioridade</span></div><div class='item'><div><div class='name'>Estilo do treinador</div><div class='meta'>${coachTone}. Sem enrolação: execução perfeita, progressão contínua e consistência diária.</div></div><span class='badge'>Hardcore</span></div></div></div>
 
-  <div class='card'><h2>Guia Intuitivo (passo a passo)</h2><div class='hint'>Aquecimento 8-10 min: mobilidade 2 min + 2 séries rampa no primeiro exercício. Regra de progressão: topo da faixa com RPE ≤8 = +2% carga.</div><div class='list'>${(sessionWithPhase?.exercises||[]).map((e,i)=>{ const repTarget=Math.round((e.reps_range[0]+e.reps_range[1])/2); const targetLoad=ProgramGenerator.targetLoadFrom1RM(profileOneRM, repTarget); return `<div class='item'><div><div class='name'>${i+1}) ${e.name}</div><div class='meta'>${e.sets} séries • ${e.reps_range[0]}-${e.reps_range[1]} reps • RPE ${e.RPE_target} • Cadência ${e.cadence.eccentric}-${e.cadence.pause}-${e.cadence.concentric} • Descanso ${e.rest_sec}s • Carga alvo ~${targetLoad}kg<br>Coach: ${e.type==='compound'?'Controle técnico e sem ego.':'Busca conexão mente-músculo total.'}</div></div><span class='badge'>${e.muscle||e.focus||'Foco'}</span></div>`}).join('')}</div></div>
+  <div class='card'><h2>Guia Intuitivo (passo a passo)</h2><div class='hint'>Aquecimento 8-10 min: mobilidade 2 min + 2 séries rampa no primeiro exercício. Regra de progressão: topo da faixa com RPE ≤8 = +2% carga.</div><div class='list'>${(sessionWithPhase?.exercises||[]).map((e,i)=>{ const repTarget=Math.round((e.reps_range[0]+e.reps_range[1])/2); const targetLoad=ProgramGenerator.targetLoadFrom1RM(profileOneRM, repTarget); return `<div class='item'><div><div class='name'>${i+1}) ${e.name}</div><div class='meta'>${e.sets} séries • ${e.reps_range[0]}-${e.reps_range[1]} reps • RPE ${e.RPE_target||e.RPE||8} • Cadência ${e.cadence.eccentric}-${e.cadence.pause}-${e.cadence.concentric} • Descanso ${e.rest_sec||e.rest||90}s • Carga alvo ~${targetLoad}kg<br>Coach: ${e.type==='compound'?'Controle técnico e sem ego.':'Busca conexão mente-músculo total.'}</div></div><span class='badge'>${e.muscle||e.focus||'Foco'}</span></div>`}).join('')}</div></div>
 
   <div class='card'><h2>Plano do dia (${dayKey})</h2><div class='list'>${exercises.map((e,i)=>`<div class='item'><div><div class='name'>${i+1}. ${e.name}</div><div class='meta'>${e.sets}x${e.reps} • RPE ${e.rpe} • tempo ${e.tempo} • descanso ${Math.round(e.rest/60)}-${e.rest%60?':30':''} min<br>${e.tip}</div></div><span class='badge'>${e.sets} sets</span></div>`).join('')}</div></div>
 
@@ -932,8 +1037,8 @@ function viewTreino(){
   const detDeload=$('#btnDetApplyDeload');
   if(detDeload) detDeload.onclick=()=>{ S.training.program.week=5; exercises.forEach(e=>{ e.sets=Math.max(1, Math.round(e.sets*0.65)); e.rpe='6'; }); showToast('Deload aplicado: volume 0.65x e RPE 6'); saveState(); render(); };
 
-  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, false, 'pre')); const execSec=Math.max(1,tempoToSec((getMuscle(exDef.primary_muscle_id)?.tempo_default)||ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec'); mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, false, 'exec')); };
-  $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const ses=S.training.program.session||{setNo:1}; const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; const rest=scientificRestSeconds(exDef, ses.setNo>=ex.sets); startWorkoutTimer(rest,'rest'); mentorSpeak(deterministicTTS(exDef, phaseObj.phase, autoDeload, ses.setNo>=ex.sets, 'rest')); };
+  $('#btnExecTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; mentorSpeak(deterministicTTS(exDef, phaseName, autoDeload, false, 'pre')); const execSec=Math.max(1,tempoToSec((getMuscle(exDef.primary_muscle_id)?.tempo_default)||ex.tempo)*Number(ex.reps.split('-')[0]||8)); startWorkoutTimer(execSec,'exec'); mentorSpeak(deterministicTTS(exDef, phaseName, autoDeload, false, 'exec')); };
+  $('#btnRestTimer').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const ses=S.training.program.session||{setNo:1}; const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0]; const rest=scientificRestSeconds(exDef, ses.setNo>=ex.sets); startWorkoutTimer(rest,'rest'); mentorSpeak(deterministicTTS(exDef, phaseName, autoDeload, ses.setNo>=ex.sets, 'rest')); };
   $('#btnAutoSerie').onclick=()=>{ const ex=currentProgramExercise(); if(!ex) return showToast('Inicie sessão'); const execSec=Math.max(1,tempoToSec(ex.tempo)*Number(ex.reps.split('-')[0]||8)); if(featureOn('workoutAutoFlow')) startWorkoutTimer(execSec,'exec',{onEnd:()=>startWorkoutTimer(ex.rest,'rest')}); else startWorkoutTimer(execSec,'exec'); };
   $('#btnPauseWorkTimer').onclick=pauseWorkoutTimer;
   $('#btnStopWorkTimer').onclick=()=>{ stopWorkoutTimer(); showToast('Timer parado'); };
@@ -958,6 +1063,11 @@ function viewTreino(){
     const exDef=getExerciseDefByName(ex.name) || EXERCISES_DB[0];
     const perf={exercise_id:exDef.id, weight:load, reps, RPE:Number(ex.rpe)||8, date:new Date().toISOString()};
     S.training.performance.push(perf);
+    const newEstimated1RM = estimate1RMRounded(load, reps);
+    const current1RM = Number(S.training.oneRMByExercise?.[exDef.id]||0);
+    if(newEstimated1RM > current1RM){
+      S.training.oneRMByExercise[exDef.id]=newEstimated1RM;
+    }
     const met=calcSetDeterministicMetrics(perf, exDef);
     const top=Number(String(ex.reps).split('-').pop())||8;
     const progMsg=`${progressionRule(perf, top)} • eReps ${met.effectiveReps.toFixed(1)} • Int ${(met.intensity*100).toFixed(0)}%`;
