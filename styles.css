@@ -83,3 +83,18 @@ body{background:radial-gradient(1200px 600px at 10% -10%, #0b2b1b 0%, transparen
 
 .attr-card .badge{min-width:48px;text-align:center}
 .topbar{backdrop-filter:blur(6px)}
+
+.muscle-map{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:760px){.muscle-map{grid-template-columns:1fr 1fr}}
+.muscle-zone{display:flex;flex-direction:column;gap:4px;text-align:left;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(10,25,20,.7);color:#e8fff6;width:100%}
+.muscle-zone strong{font-size:14px}
+.muscle-zone small{font-size:12px;opacity:.92}
+.heat-sub{background:linear-gradient(135deg,rgba(52,123,255,.35),rgba(28,55,120,.35));border-color:#6ea3ff}
+.heat-ideal{background:linear-gradient(135deg,rgba(20,195,108,.3),rgba(10,80,49,.35));border-color:#5df5aa}
+.heat-high{background:linear-gradient(135deg,rgba(255,198,77,.3),rgba(120,85,15,.35));border-color:#ffd46f}
+.heat-excess{background:linear-gradient(135deg,rgba(255,86,86,.35),rgba(124,25,25,.35));border-color:#ff8d8d}
+.legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:4px}
+.trend-bars{display:flex;gap:4px;align-items:flex-end;height:36px;margin:4px 0 8px}
+.trend-bars span{display:inline-block;width:8px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#7ed4ff,#3aa3ff)}
+.trend-item .meta{margin-bottom:2px}
