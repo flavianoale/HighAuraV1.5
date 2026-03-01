@@ -1,0 +1,40 @@
+const CACHE = 'ascensao-os-pro-v4';
+const ASSETS = [
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './manifest.json',
+  './assets/icon.svg',
+  './assets/icon-maskable.svg',
+  './assets/exercises/db-floor-press.svg',
+  './assets/exercises/pull-up.svg',
+  './assets/exercises/goblet-squat.svg',
+  './assets/exercises/rdl.svg',
+  './assets/exercises/lateral-raise.svg',
+  './assets/exercises/curl.svg',
+  './assets/exercises/triceps-ext.svg',
+  './assets/exercises/calf-raise.svg'
+];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+      const copy = res.clone();
+      caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+      return res;
+    }).catch(() => caches.match('./index.html')))
+  );
+});
