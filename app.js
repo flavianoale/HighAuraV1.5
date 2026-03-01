@@ -336,7 +336,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[],performance:[],oneRMByExercise:{},program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
+    training:{environment:'home',history:[],performance:[],oneRMByExercise:{},program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'},voice:{mode:'hardcore',intensity:2,frequency:'normal'}}, study:{history:[]},
     diet:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -369,7 +369,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, profile:{...d.profile,...(st.profile||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], oneRMByExercise:{...(d.training.oneRMByExercise||{}), ...((st.training&&st.training.oneRMByExercise)||{})}, program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, ui:{...d.ui,...(st.ui||{}), attrs:{...d.ui.attrs,...(st.ui?.attrs||{})}}, modeChange:{...d.modeChange,...(st.modeChange||{})}, profile:{...d.profile,...(st.profile||{})}, features:{...d.features,...(st.features||{})}, training:{...d.training,...(st.training||{}), performance:[...(d.training.performance||[]), ...((st.training&&st.training.performance)||[])], oneRMByExercise:{...(d.training.oneRMByExercise||{}), ...((st.training&&st.training.oneRMByExercise)||{})}, program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}, voice:{...d.training.voice,...(st.training?.voice||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 const featureOn = (k)=> !!(S.features?.[k]);
 
@@ -422,15 +422,36 @@ function microPulse(el){
   setTimeout(()=>el.classList.remove('pulse-hit'), 320);
 }
 
-function cadenceSpeak(type, ctx={}){
-  if(type==='eccentric') return mentorSpeak('Controla a descida.');
-  if(type==='pause') return mentorSpeak('Segura.');
-  if(type==='concentric') return mentorSpeak('Sobe firme.');
-  if(type==='rest') return mentorSpeak('Recupera. Próxima série pesada.');
-  if(type==='last') return mentorSpeak('Última série. Técnica acima do ego.');
-  if(type==='fatigue') return mentorSpeak('Controle total. Não acelere.');
-  if(type==='start') return mentorSpeak(`Iniciando ${ctx.name||'exercício'}. Posição perfeita.`);
-}
+function cadenceSpeak(state, ctx={}){ return VoiceEngine.dispatch(state, ctx); }
+
+
+const VOICE_STATES = {
+  PRE_WORKOUT:'PRE_WORKOUT', PRE_SET:'PRE_SET', ECCENTRIC:'ECCENTRIC', PAUSE:'PAUSE', CONCENTRIC:'CONCENTRIC',
+  MID_SET_PUSH:'MID_SET_PUSH', LAST_REP_PUSH:'LAST_REP_PUSH', REST_START:'REST_START', REST_MID:'REST_MID', REST_END:'REST_END',
+  LAST_SET_ALERT:'LAST_SET_ALERT', FATIGUE_WARNING:'FATIGUE_WARNING', PR_DETECTED:'PR_DETECTED', WORKOUT_COMPLETE:'WORKOUT_COMPLETE'
+};
+
+const VoiceEngine = {
+  StateController:{state:VOICE_STATES.PRE_WORKOUT,set(next){this.state=next;},canSpeak(state,ctx={}){const cfg=S.training?.voice||{}; if(cfg.mode==='silent') return false; if(cfg.frequency==='reduced'&&[VOICE_STATES.ECCENTRIC,VOICE_STATES.PAUSE,VOICE_STATES.CONCENTRIC].includes(state)&&(ctx.rep||1)%2===0) return false; return true;}},
+  ScriptLibrary:{
+    PRE_WORKOUT:['Hoje você constrói o físico que outros só imaginam.','Disciplina acima da motivação.','Sem distrações. Só execução.'],
+    PRE_SET:{compound:['Escápulas firmes. Base sólida.','Respira fundo. Estabiliza.','Essa série constrói estrutura.'],isolation:['Foco no músculo.','Conexão total.','Controle absoluto.']},
+    ECCENTRIC:['Controla.','Sem deixar cair.','Força na descida.'],PAUSE:['Segura.','Tensão.','Não relaxa.'],CONCENTRIC:['Explode com controle.','Sobe firme.','Força limpa.'],
+    MID_SET_PUSH:['Agora começa.','Mantém padrão.','Sem quebrar técnica.'],LAST_REP_PUSH:['Essa define você.','Mais uma.','Não negocia.'],
+    REST_START:{compound:['Recuperação neural. 3 minutos.','Respiração profunda.'],isolation:['Controle a respiração.','Mais 60 segundos.']},REST_MID:['Mantém respiração controlada.','Recupera e organiza técnica.'],REST_END:['Prepara.','Foco.','Últimos segundos.'],
+    LAST_SET_ALERT:['Última série.','Entrega técnica máxima.','Sem ego. Só execução.'],FATIGUE_WARNING:['Fadiga alta. Técnica acima de tudo.','Reduz velocidade se necessário.','Controle total.'],
+    PR_DETECTED:['Novo recorde.','Evolução registrada.','Consistência vence talento.'],WORKOUT_COMPLETE:['Treino concluído.','Você construiu algo hoje.','Disciplina validada.']
+  },
+  MuscleContextLayer:{chest:['Abre o peito.','Controle no alongamento.'],back:['Cotovelo para o quadril.','Dorsal contrai.'],delts:['Não rouba.','Lento na descida.'],quads:['Desce profundo.','Joelho estável.'],hamstrings:['Quadril para trás.','Alongamento máximo.'],calves:['Segura dois segundos.','Completo embaixo.'],core:['Costelas para baixo.','Contração total.']},
+  pick(list, seed='x'){ if(!Array.isArray(list)||!list.length) return ''; const i=Math.abs(String(seed).split('').reduce((a,c)=>a+c.charCodeAt(0),0))%list.length; return list[i]; },
+  resolve(state,ctx={}){ if((ctx.fatigueScore||0)>70 && [VOICE_STATES.PRE_SET,VOICE_STATES.REST_START].includes(state)) state=VOICE_STATES.FATIGUE_WARNING; if(state===VOICE_STATES.PRE_SET){const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.PRE_SET[t],ctx.exerciseName);} if(state===VOICE_STATES.REST_START){const t=ctx.exerciseType==='compound'?'compound':'isolation'; return this.pick(this.ScriptLibrary.REST_START[t],ctx.exerciseName);} return this.pick(this.ScriptLibrary[state]||[],`${ctx.exerciseName||''}${ctx.rep||1}${ctx.setNo||1}`); },
+  enrich(text,ctx={}){ const cfg=S.training?.voice||{}; const phase=ctx.phase==='deload'?'Deload técnico. ':ctx.phase==='intensification'?'Bloco de intensificação. ':''; const cue=this.pick(this.MuscleContextLayer[ctx.muscleId]||[],`${ctx.exerciseName||''}${ctx.rep||1}`); const base=`${phase}${text}`.trim(); const withCue=(cfg.mode==='hardcore'&&cue&&[VOICE_STATES.PRE_SET,VOICE_STATES.ECCENTRIC,VOICE_STATES.CONCENTRIC].includes(ctx.state))?`${base} ${cue}`:base; const level=Number(cfg.intensity||2); if(level>=3||Number(ctx.rpe||8)>=10) return `Máximo foco. ${withCue.split('. ')[0]}.`; if(level===2||Number(ctx.rpe||8)>=9) return `Firme. ${withCue}`; return withCue; },
+  dispatch(state,ctx={}){ if(!this.StateController.canSpeak(state,ctx)) return; this.StateController.set(state); const raw=this.resolve(state,ctx); if(!raw) return; mentorSpeak(this.enrich(raw,{...ctx,state})); },
+  preSet(ex,ctx={}){ this.dispatch(VOICE_STATES.PRE_SET,{...ctx,exerciseName:ex.name,exerciseType:ex.type,muscleId:ex.primary_muscle_id}); },
+  eccentric(ctx={}){ this.dispatch(VOICE_STATES.ECCENTRIC,ctx); }, pause(ctx={}){ this.dispatch(VOICE_STATES.PAUSE,ctx); }, concentric(ctx={}){ this.dispatch(VOICE_STATES.CONCENTRIC,ctx); },
+  restStart(ctx={}){ this.dispatch(VOICE_STATES.REST_START,ctx); }, restEnd(ctx={}){ this.dispatch(VOICE_STATES.REST_END,ctx); }, lastSet(ctx={}){ this.dispatch(VOICE_STATES.LAST_SET_ALERT,ctx); },
+  fatigueWarning(ctx={}){ this.dispatch(VOICE_STATES.FATIGUE_WARNING,ctx); }, prDetected(ctx={}){ this.dispatch(VOICE_STATES.PR_DETECTED,ctx); }, workoutComplete(ctx={}){ this.dispatch(VOICE_STATES.WORKOUT_COMPLETE,ctx); }
+};
 
 function cadenceStartPhase(sec, label, onEnd){
   cadenceRunner.phase=label;
@@ -452,22 +473,26 @@ function cadenceStartPhase(sec, label, onEnd){
 function startCadenceSetFlow(exObj, opts={}){
   const reps=opts.repsTarget||Math.round((exObj.reps_range?.[0]+exObj.reps_range?.[1])/2)||8;
   cadenceRunner={...cadenceRunner,running:true,pause:false,rep:1,targetReps:reps,set:opts.setNo||1,targetSets:opts.sets||exObj.sets||1,log:[]};
-  cadenceSpeak('start',{name:exObj.name});
+  VoiceEngine.dispatch(VOICE_STATES.PRE_WORKOUT,{exerciseName:exObj.name,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
+  VoiceEngine.preSet({name:exObj.name,type:exObj.type,primary_muscle_id:exObj.primary_muscle_id||'chest'},{phase:opts.phase||'base',rpe:Number(exObj.RPE||8),setNo:opts.setNo||1,fatigueScore:opts.fatigueScore||0,exerciseType:exObj.type||'compound'});
+  if((opts.setNo||1)>=(opts.sets||exObj.sets||1)) VoiceEngine.lastSet({exerciseName:exObj.name,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
   const cad=exObj.cadence_seconds||{eccentric:3,pause:1,concentric:1};
   const runRep=()=>{
     cadenceStartPhase(cad.eccentric,'Descida',()=>{
-      cadenceSpeak('eccentric');
+      VoiceEngine.eccentric({exerciseName:exObj.name,rep:cadenceRunner.rep,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8),muscleId:exObj.primary_muscle_id||'chest'});
       cadenceStartPhase(cad.pause,'Pausa',()=>{
-        cadenceSpeak('pause');
+        VoiceEngine.pause({exerciseName:exObj.name,rep:cadenceRunner.rep,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
         cadenceStartPhase(cad.concentric,'Subida',()=>{
-          cadenceSpeak('concentric');
+          VoiceEngine.concentric({exerciseName:exObj.name,rep:cadenceRunner.rep,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8),muscleId:exObj.primary_muscle_id||'chest'});
+          if(cadenceRunner.rep>=Math.ceil(cadenceRunner.targetReps*0.6)) VoiceEngine.dispatch(VOICE_STATES.MID_SET_PUSH,{exerciseName:exObj.name,rep:cadenceRunner.rep,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
+          if(cadenceRunner.rep===cadenceRunner.targetReps-1) VoiceEngine.dispatch(VOICE_STATES.LAST_REP_PUSH,{exerciseName:exObj.name,rep:cadenceRunner.rep,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8)});
           if(cadenceRunner.rep < cadenceRunner.targetReps){ cadenceRunner.rep+=1; runRep(); }
           else {
             cadenceRunner.running=false;
             cadenceRunner.label='Execução concluída';
             const big=$('#cadBig'); if(big) big.textContent='00:00';
             const rest=scientificRestSeconds({type:exObj.type, primary_muscle_id:(exObj.muscle||'').toLowerCase().includes('pant')?'calves':'chest'}, cadenceRunner.set>=cadenceRunner.targetSets);
-            cadenceSpeak('rest');
+            VoiceEngine.restStart({exerciseName:exObj.name,setNo:cadenceRunner.set,phase:opts.phase||'base',rpe:Number(exObj.RPE||8),exerciseType:exObj.type||'compound'});
             startWorkoutTimer(rest,'rest');
           }
         });
@@ -478,449 +503,6 @@ function startCadenceSetFlow(exObj, opts={}){
 }
 
 function stopCadenceFlow(){ cadenceRunner.running=false; clearInterval(cadenceInterval); cadenceRunner.label='Interrompido'; const big=$('#cadBig'); if(big) big.textContent='00:00'; }
-
-async function forceRefreshApp(){
-  try{
-    if('serviceWorker' in navigator){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r)=>r.unregister()));
-    }
-    if('caches' in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k)=>caches.delete(k)));
-    }
-    showToast('Cache limpo. Recarregando...');
-    setTimeout(()=>location.reload(), 300);
-  }catch{
-    showToast('Não consegui limpar cache');
-  }
-}
-
-const hmToMin=(hm)=>{const [h,m]=hm.split(':').map(Number);return h*60+m;};
-const nowMin=()=>{const d=new Date(); return d.getHours()*60+d.getMinutes();};
-function currentWindow(){ const w=S.windows,n=nowMin(); const T=(k)=>hmToMin(w[k]); const order=[ {id:'wake',name:'Rotina Matinal',start:T('wake'),end:T('morningEnd'),tab:'PROTO'}, {id:'study',name:'Estudo',start:T('studyStart'),end:T('studyEnd'),tab:'ESTUDO'}, {id:'work',name:'Projetos',start:T('workStart'),end:T('workEnd'),tab:'OPS'}, {id:'train',name:'Treino',start:T('trainStart'),end:T('trainEnd'),tab:'TREINO'}, {id:'night',name:'Noite',start:T('nightStart'),end:T('sleep'),tab:'BIBLIA'}, {id:'sleep',name:'Dormir',start:T('sleep'),end:1440,tab:'DASH'} ]; for(const it of order){ if(n>=it.start && n<it.end) return it; } return {id:'late',name:'Fora da janela',start:0,end:T('wake'),tab:'DASH'}; }
-function timeLeftInWindow(win){ const left=Math.max(0, win.end-nowMin()); return `${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}h`; }
-function modeChangeLeftSec(){
-  const a=S.modeChange?.active;
-  if(!a?.endsAt) return 0;
-  return Math.max(0, Math.floor((a.endsAt - Date.now())/1000));
-}
-function ensureModeChangeValidity(){
-  if(S.modeChange?.active && modeChangeLeftSec()<=0){
-    const prev=S.modeChange.active?.title || 'bloco';
-    S.modeChange.active=null;
-    saveState();
-    showToast(`Modo change finalizado: ${prev}`);
-  }
-}
-function currentMissionWindow(){
-  ensureModeChangeValidity();
-  if(S.modeChange?.enabled && S.modeChange?.active && modeChangeLeftSec()>0){
-    return {id:'mode-change', name:`Modo Change: ${S.modeChange.active.title}`, start:0, end:nowMin()+Math.ceil(modeChangeLeftSec()/60), tab:S.modeChange.active.tab};
-  }
-  return currentWindow();
-}
-function campaignDay(){ const s=new Date(S.campaignStart), n=new Date(); return Math.floor((Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())-Date.UTC(s.getFullYear(),s.getMonth(),s.getDate()))/86400000)+1; }
-function phaseForDay(day){ if(day<=14) return {id:1,name:'Pressão',mult:1}; if(day<=45) return {id:2,name:'Consistência',mult:.8}; if(day<=90) return {id:3,name:'Autonomia',mult:.6}; return {id:4,name:'Ferramenta',mult:.4}; }
-function xpForLevel(lvl){ return Math.floor(150*(lvl-1)*(lvl-1)+100*(lvl-1)); }
-function computeLevel(xp){ let lvl=1; while(xp>=xpForLevel(lvl+1)) lvl++; return lvl; }
-function computeRank(xp){ let r=RANKS[0].name; for(const k of RANKS){if(xp>=k.min) r=k.name;} return r; }
-function xpBonusFactor(){ if(S.class==='guerreiro') return {train:1.15,diet:1.05,study:.95,bible:.95,proto:1,ops:1,social:1}; if(S.class==='estrategista') return {train:.95,diet:1,study:1.15,bible:1,proto:1,ops:1,social:1}; if(S.class==='monge') return {train:.95,diet:1,study:1,bible:1.15,proto:1.05,ops:1,social:1}; return {train:1,diet:1,study:1,bible:1,proto:1,ops:1,social:1}; }
-function addXP(base,tag='generic'){ const ph=phaseForDay(campaignDay()); const bonus=xpBonusFactor(); const gain=Math.max(1,Math.round(base*ph.mult*(bonus[tag]||1)*(S.rpg.integrity/100))); S.rpg.xp+=gain; S.rpg.level=computeLevel(S.rpg.xp); S.rpg.rank=computeRank(S.rpg.xp); S.rpg.combo=Math.min(999,(S.rpg.combo||0)+1); saveState(); beep(920,.05,.09); dopamineHit(gain, tag); refreshHUD(); return gain; }
-function adjustIntegrity(d){ S.rpg.integrity=Math.max(0,Math.min(100,S.rpg.integrity+d)); if(d<0) S.rpg.combo=Math.max(0,(S.rpg.combo||0)-1); saveState(); refreshHUD(); }
-
-function getTodayObj(arr){ return arr.find(x=>x.date===todayKey()); }
-function upsertToday(arr,obj){ const i=arr.findIndex(x=>x.date===todayKey()); if(i>=0) arr[i]=obj; else arr.push(obj); }
-function todayProgress(){ const k=todayKey(); const proto=(S.proto.history.find(x=>x.date===k)?.morningDone?.length||0)>=3; const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0)>=25; const diet=!!(S.diet.history.find(x=>x.date===k)?.selections?.cafe); const train=S.training.history.filter(x=>x.date===k).length>=3; const bible=(S.bibleLog?.[k]===true); const done=[proto,study,diet,train,bible].filter(Boolean).length; return {proto,study,diet,train,bible,done,total:5,pct:Math.round(done/5*100)}; }
-
-function setLastAction(a){ S.lastAction=a; saveState(); }
-function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada pra desfazer'); const k=todayKey(); try{
-  if(a.type==='proto'){ const t=getTodayObj(S.proto.history); if(t){ const arr=a.tag==='morning'?t.morningDone:t.nightDone; if(a.undo==='remove'){ const i=arr.indexOf(a.idx); if(i>=0) arr.splice(i,1);} else if(!arr.includes(a.idx)) arr.push(a.idx); }}
-  if(a.type==='dietSelect'){ const d=ensureDietToday(); d.selections[a.meal]=a.prev; }
-  if(a.type==='dietMult'){ const d=ensureDietToday(); d.mult[a.meal]=a.prev; }
-  if(a.type==='trainSet'){ const i=S.training.history.lastIndexOf(a.entry); if(i>=0) S.training.history.splice(i,1); }
-  if(a.type==='studyAdd'){ for(let i=S.study.history.length-1;i>=0;i--){const x=S.study.history[i]; if(x.date===a.date&&x.minutes===a.minutes&&x.topic===a.topic){S.study.history.splice(i,1);break;}} }
-  if(a.type==='taskAdd'){ const arr=(S.tasks.byDate[k]||[]); arr.pop(); }
-  S.lastAction=null; saveState(); showToast('Desfeito'); render();
-}catch{ showToast('Falhou desfazer'); }}
-
-function applyTheme(){ document.body.classList.toggle('crt', !!S.theme.crt); }
-function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentMissionWindow(); const left = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); $('#missionLine').innerHTML=`MISSÃO DO MOMENTO: <b>${win.name}</b> • fecha em <b>${left}</b>`; }
-
-function renderTabs(){ tabs.innerHTML=''; const win=currentMissionWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode && featureOn('strictNavigation')){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; beep(760,.03,.05); microPulse(b); render(); }; tabs.appendChild(b);} }
-
-function pressurePanelHTML(){ const win=currentMissionWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; const left = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${left}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
-
-function attrsPanelHTML(){ const map=S.ui.attrs||{}; const labels={forca:'Força',vitalidade:'Vitalidade',foco:'Foco',carisma:'Carisma',disciplina:'Disciplina',sabedoria:'Sabedoria'}; return `<div class='grid'>${Object.entries(labels).map(([k,l])=>`<div class='card g4 attr-card'><div class='kpi'><div><div class='name'>${l}</div><div class='small'>Atributo global</div></div><span class='badge'>${map[k]||0}</span></div><div class='progress'><div style='width:${Math.max(0,Math.min(100,map[k]||0))}%'></div></div><div class='row'><button class='btn ghost' data-attr='${k}' data-delta='-5'>-5</button><button class='btn' data-attr='${k}' data-delta='5'>+5</button></div></div>`).join('')}</div>`; }
-
-function modeChangeCardHTML(){ const active=S.modeChange?.active; const left=modeChangeLeftSec(); return `<div class='card'><div class='kpi'><div><div class='big'>Modo Change</div><div class='small'>Escolha livre de missão por tempo fechado.</div></div><span class='badge'>${S.modeChange?.enabled?'ATIVO':'OFF'}</span></div>${active && left>0 ? `<div class='item'><div><div class='name'>Em andamento: ${active.title}</div><div class='meta'>${fmtTimerSec(left)} restantes • trava em ${active.tab}</div></div><button class='btn danger' id='btnModeChangeStop'>ENCERRAR</button></div>`:''}<div class='grid'>${CHANGE_CHOICES.map(c=>`<div class='g6'><button class='btn wide ${active?.id===c.id?'primary':'ghost'}' data-mode-choice='${c.id}'><b>${c.title}</b><div class='hint'>${c.desc}</div></button></div>`).join('')}</div></div>`; }
-
-function viewHUD(){ const day=campaignDay(), ph=phaseForDay(day), prog=todayProgress(); const win=currentMissionWindow(); const winLeft = win.id==='mode-change' ? fmtTimerSec(modeChangeLeftSec()) : timeLeftInWindow(win); const xpNext=xpForLevel(S.rpg.level+1), xpThis=xpForLevel(S.rpg.level), lvlPct=Math.max(0,Math.min(100,Math.round((S.rpg.xp-xpThis)/(xpNext-xpThis)*100))); const tasks=(S.tasks.byDate[todayKey()]||[]).sort((a,b)=>a.time.localeCompare(b.time));
-  view.innerHTML=`<div class="card"><div class="kpi"><div><div class="big">MISSÃO ATIVA: ${win.name}</div><div class="small">Janela fecha em <b>${winLeft}</b> • Fase ${ph.id}/4: ${ph.name} • Dia ${day}/90</div></div><button class="btn primary" id="btnExec">EXECUTAR AGORA</button></div><div class="progress"><div style="width:${prog.pct}%"></div></div><div class="hint">Progresso do dia ${prog.pct}% • mínimo: 3 pilares</div></div>
-  <div class="grid"><div class="card g6"><h2>Level</h2><div class="small">${S.rpg.xp}/${xpNext} XP</div><div class="progress"><div style="width:${lvlPct}%"></div></div></div><div class="card g6"><h2>Pilares</h2><div class="list">${['Protocolo','Estudo','Dieta','Treino','Bíblia'].map((n,i)=>{const k=['proto','study','diet','train','bible'][i];return `<div class='item'><div><div class='name'>${n}</div><div class='meta'>${prog[k]?'Concluído':'Pendente'}</div></div><span class='badge'>${prog[k]?'OK':'—'}</span></div>`;}).join('')}</div><div class="row"><button class="btn" id="btnCloseDay">FECHAR O DIA</button><button class="btn danger" id="btnUndo">DESFAZER</button></div></div></div>
-  <div class="card"><h2>Status do personagem</h2>${attrsPanelHTML()}</div>
-  ${modeChangeCardHTML()}
-  <div class="card"><h2>Tarefas com horário</h2><div class="list">${tasks.length?tasks.map((t,i)=>`<div class='item'><div><div class='name'>${t.time} • ${t.title}</div><div class='meta'>${t.cat}</div></div><button class='btn' data-donetask='${i}'>FEITO</button></div>`).join(''):'<div class="hint">Sem tarefas de hoje.</div>'}</div></div>
-  <div class="card"><h2>Pressão inteligente</h2>${pressurePanelHTML()}</div>`;
-  $('#btnExec').onclick=()=>{activeTab=win.tab||'DASH';render();};
-  $('#btnCloseDay').onclick=()=>{const k=todayKey(); if(S.streakLog[k]) return showToast('Dia já fechado'); const v=prog.done===5; if(v){S.rpg.streak++; addXP(120); adjustIntegrity(+4); showToast('Dia perfeito');} else if(prog.done>=3){addXP(40); adjustIntegrity(+1); showToast('Sobreviveu')} else {S.rpg.streak=0; adjustIntegrity(-6); showToast('Dia falhou')}; S.streakLog[k]=true; saveState(); render();};
-  $('#btnUndo').onclick=undoLastAction;
-  view.querySelectorAll('[data-attr]').forEach(b=>b.onclick=()=>{ const k=b.dataset.attr; const d=Number(b.dataset.delta)||0; S.ui.attrs[k]=Math.max(0,Math.min(100,(S.ui.attrs[k]||0)+d)); saveState(); render(); });
-  view.querySelectorAll('[data-mode-choice]').forEach(b=>b.onclick=()=>{
-    if(!S.modeChange.enabled) return showToast('Ative o modo change na Config.');
-    const choice=CHANGE_CHOICES.find(c=>c.id===b.dataset.modeChoice);
-    if(!choice) return;
-    const mins=Math.max(10, Number(S.modeChange.durationMin||45));
-    S.modeChange.active={id:choice.id,title:choice.title,tab:choice.tab,startedAt:Date.now(),endsAt:Date.now()+mins*60000};
-    S.strictMode=true;
-    activeTab=choice.tab;
-    addXP(8,'generic');
-    saveState();
-    showToast(`Modo change: ${choice.title} por ${mins} min`);
-    render();
-  });
-  const stopBtn=$('#btnModeChangeStop');
-  if(stopBtn) stopBtn.onclick=()=>{ S.modeChange.active=null; saveState(); showToast('Modo change encerrado'); render(); };
-  view.querySelectorAll('[data-donetask]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.donetask); const arr=S.tasks.byDate[todayKey()]||[]; const it=arr[i]; if(!it) return; arr.splice(i,1); addXP(15,'ops'); adjustIntegrity(+1); saveState(); showToast('Tarefa concluída'); render();});
-}
-
-function viewProtocolo(){ let t=getTodayObj(S.proto.history); if(!t){ t={date:todayKey(), morningDone:[], nightDone:[]}; upsertToday(S.proto.history,t); saveState(); }
-  const listHtml=(items,done,tag)=>items.map((name,idx)=>`<div class='item'><div><div class='name'>${name}</div><div class='meta'>${tag}</div></div><button class='btn ${done.includes(idx)?'primary':'ghost'}' data-idx='${idx}' data-tag='${tag}'>${done.includes(idx)?'FEITO':'MARCAR'}</button></div>`).join('');
-  view.innerHTML=`<div class='card'><h2>Protocolo Matinal</h2><div class='list'>${listHtml(S.proto.itemsMorning,t.morningDone,'morning')}</div></div><div class='card'><h2>Protocolo Noturno</h2><div class='list'>${listHtml(S.proto.itemsNight,t.nightDone,'night')}</div></div><div class='card'><div class='row'><button class='btn' id='btnProtoBonus'>VALIDAR BÔNUS</button><button class='btn danger' id='btnProtoClear'>DESMARCAR TUDO</button></div></div>`;
-  view.querySelectorAll('button[data-idx]').forEach(b=>b.onclick=()=>{const idx=Number(b.dataset.idx), tag=b.dataset.tag; const arr=tag==='morning'?t.morningDone:t.nightDone; const had=arr.includes(idx); if(had){arr.splice(arr.indexOf(idx),1);setLastAction({type:'proto',tag,idx,undo:'add'});adjustIntegrity(-1);} else {arr.push(idx);setLastAction({type:'proto',tag,idx,undo:'remove'});addXP(10,'proto');adjustIntegrity(+1);} saveState();render();});
-  $('#btnProtoBonus').onclick=()=>{let bonus=0; if(t.morningDone.length>=S.proto.itemsMorning.length) bonus+=60; if(t.nightDone.length>=S.proto.itemsNight.length) bonus+=60; bonus?showToast(`Bônus +${addXP(bonus,'proto')} XP`):showToast('Sem bônus');};
-  $('#btnProtoClear').onclick=()=>{t.morningDone=[];t.nightDone=[];adjustIntegrity(-4);saveState();render();};
-}
-
-function calcTargetsAuto(){ const w=S.targets.weightKg,bf=S.targets.bfPct,goal=S.targets.goal,activity=S.targets.activity; const lbm=w*(1-bf/100); const bmr=370+21.6*lbm; const act=activity==='baixa'?1.35:activity==='moderada'?1.55:1.75; let kcal=bmr*act; if(goal==='cutting') kcal-=450; if(goal==='bulk') kcal+=250; const p=Math.round((goal==='bulk'?2.2:goal==='cutting'?2.1:1.8)*w), g=Math.round(.8*w), c=Math.max(0,Math.round((kcal-(p*4+g*9))/4)); return {kcal:Math.round(kcal),p,c,g}; }
-function ensureDietToday(){ let d=getTodayObj(S.diet.history); if(!d){ d={date:todayKey(), selections:{cafe:null,almoco:null,lanche:null,jantar:null}, mult:{cafe:1,almoco:1,lanche:1,jantar:1}, locked:{cafe:false,almoco:false,lanche:false,jantar:false}}; S.diet.history.push(d); saveState(); } return d; }
-function sumDiet(d){ let kcal=0,p=0,c=0,g=0; for(const key of ['cafe','almoco','lanche','jantar']){ const i=d.selections[key]; if(i==null) continue; const m=MEALS[key][i], mult=d.mult[key]||1; kcal+=m.kcal*mult;p+=m.p*mult;c+=m.c*mult;g+=m.g*mult; } return {kcal:Math.round(kcal),p:Math.round(p),c:Math.round(c),g:Math.round(g)}; }
-function mealCard(meal,idx,current,mult){ const sel=idx===current, kcal=Math.round(meal.kcal*mult), p=Math.round(meal.p*mult), c=Math.round(meal.c*mult), g=Math.round(meal.g*mult); return `<div class='item'><div><div class='name'>${meal.name}</div><div class='meta'>${kcal}kcal • P${p} C${c} G${g}</div></div><button class='btn ${sel?'primary':'ghost'}' data-mealidx='${idx}'>${sel?'ESCOLHIDO':'ESCOLHER'}</button></div>`; }
-function dietSection(title,key,d){ const sel=d.selections[key],mult=d.mult[key],locked=d.locked[key]; return `<div class='card' data-meal='${key}'><div class='kpi'><div><div class='big'>${title}</div><div class='small'>${sel==null?'Nenhuma opção':MEALS[key][sel].name}</div></div><span class='badge'>${mult}x ${locked?'•TRAVADO':''}</span></div><div class='row'><button class='btn' data-dec='${key}'>- porção</button><button class='btn' data-inc='${key}'>+ porção</button><button class='btn ${locked?'danger':'ghost'}' data-lock='${key}'>${locked?'DESTRAVAR':'TRAVAR'}</button></div><div class='list'>${MEALS[key].map((m,i)=>mealCard(m,i,sel,mult)).join('')}</div></div>`; }
-function viewDieta(){ Object.assign(S.targets, calcTargetsAuto()); saveState(); const d=ensureDietToday(); const t=sumDiet(d); const pct=Math.round(t.kcal/(S.targets.kcal||1)*100); view.innerHTML=`<div class='card'><h2>Dieta inteligente</h2><div class='small'>Meta ${S.targets.kcal}kcal • P${S.targets.p} C${S.targets.c} G${S.targets.g}</div><div class='progress'><div style='width:${Math.max(0,Math.min(100,pct))}%'></div></div><div class='hint'>Aderência: ${Math.round((Math.max(0,100-Math.abs(100-pct))*0.55 + Math.min(100,Math.round(t.p/(S.targets.p||1)*100))*0.45))}%</div></div>${dietSection('Café','cafe',d)}${dietSection('Almoço','almoco',d)}${dietSection('Lanche','lanche',d)}${dietSection('Jantar','jantar',d)}<div class='card'><div class='row'><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
-  ['cafe','almoco','lanche','jantar'].forEach(key=>{ view.querySelectorAll(`[data-meal='${key}'] button[data-mealidx]`).forEach(btn=>btn.onclick=()=>{ if(d.locked[key]) return showToast('Travado'); const idx=Number(btn.dataset.mealidx), prev=d.selections[key]; d.selections[key]=idx; setLastAction({type:'dietSelect',meal:key,prev,next:idx}); addXP(18,'diet'); adjustIntegrity(+1); saveState(); render();}); const dec=view.querySelector(`[data-dec='${key}']`), inc=view.querySelector(`[data-inc='${key}']`), lock=view.querySelector(`[data-lock='${key}']`); dec.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.max(.5,Math.round((d.mult[key]-0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; inc.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.min(2,Math.round((d.mult[key]+0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; lock.onclick=()=>{d.locked[key]=!d.locked[key]; saveState(); render();}; });
-  $('#btnDietUndo').onclick=undoLastAction; $('#btnDietReset').onclick=()=>{ d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
-}
-
-function getProgramAndDay(){
-  const track=S.training.program.track||'home';
-  const prog=TRAINING_PROGRAMS[track];
-  const dayKey=S.training.program.dayKey && prog.days[S.training.program.dayKey] ? S.training.program.dayKey : prog.split[0];
-  return {track,prog,dayKey,exercises:prog.days[dayKey]||[]};
-}
-function tempoToSec(tempo){ return String(tempo).split('-').map((n)=>Number(n)||0).reduce((a,b)=>a+b,0); }
-function fmtTimerSec(sec){ const s=Math.max(0,Math.floor(sec)); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-
-function getProgramBlock(week){ return PROGRAM_BLOCKS.find(b=>week>=b.week_start&&week<=b.week_end) || PROGRAM_BLOCKS[0]; }
-function getPhase(week){
-  if (week <= 3) return 'base';
-  if (week === 4) return 'intensification';
-  if (week === 5) return 'deload';
-  if (week <= 8) return 'peak';
-  if (week === 9) return 'intensification';
-  if (week === 10) return 'deload';
-  return 'final_peak';
-}
-function phaseConfig(phase){
-  if(phase==='deload') return {volume_multiplier:0.65,rpe_target:6.5,load_multiplier:0.9};
-  if(phase==='intensification') return {volume_multiplier:0.9,rpe_target:8.8,load_multiplier:1.03};
-  if(phase==='peak') return {volume_multiplier:1.05,rpe_target:8.6,load_multiplier:1.02};
-  if(phase==='final_peak') return {volume_multiplier:1.08,rpe_target:8.9,load_multiplier:1.03};
-  return {volume_multiplier:1,rpe_target:8,load_multiplier:1};
-}
-function estimate1RM(weight,reps){ if(!weight||!reps) return 0; return weight*(1+reps/30); }
-function getExerciseDefByName(name){ return EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase().split(' ')[0])) || EXERCISES_DB.find(e=>name.toLowerCase().includes(e.name.toLowerCase())) || null; }
-function getMuscle(id){ return MUSCLE_GROUPS.find(m=>m.id===id); }
-function calcSetDeterministicMetrics(perf, exDef){
-  const effectiveReps = perf.RPE >= 8 ? Math.max(0, perf.reps - (10 - perf.RPE)) : 0;
-  const est1RM = estimate1RM(perf.weight, perf.reps) || perf.weight;
-  const intensity = est1RM>0 ? perf.weight / est1RM : 0;
-  const stimulus = effectiveReps * intensity * (exDef?.stimulus_multiplier||1);
-  return {effectiveReps, intensity, stimulus, est1RM};
-}
-function getWeeklyMuscleStats(){
-  const since=Date.now()-7*86400000;
-  const stats={};
-  for(const m of MUSCLE_GROUPS){ stats[m.id]={weeklyEffectiveReps:0,weeklySets:0,fatigue:0,status:'subestimulado'}; }
-  for(const p of (S.training.performance||[])){
-    const t=new Date(p.date).getTime(); if(Number.isNaN(t)||t<since) continue;
-    const ex=EXERCISES_DB.find(e=>e.id===p.exercise_id); if(!ex) continue;
-    const met=calcSetDeterministicMetrics(p, ex);
-    const prime=stats[ex.primary_muscle_id];
-    if(prime){ prime.weeklyEffectiveReps += met.effectiveReps; prime.weeklySets += 1; }
-  }
-  for(const m of MUSCLE_GROUPS){
-    const st=stats[m.id];
-    st.fatigue = st.weeklyEffectiveReps * m.fatigue_factor;
-    if(st.weeklySets < m.MAV_min) st.status='subestimulado';
-    else if(st.weeklySets <= m.MAV_max) st.status='ideal';
-    else if(st.weeklySets > m.MRV) st.status='excesso';
-    else st.status='alto';
-  }
-  return stats;
-}
-function performanceDropTwoSessions(exerciseId){
-  const arr=(S.training.performance||[]).filter(x=>x.exercise_id===exerciseId).slice(-3);
-  if(arr.length<3) return false;
-  const score=(x)=>x.weight*Math.max(1,x.reps);
-  const p1=score(arr[arr.length-3]), p2=score(arr[arr.length-2]), p3=score(arr[arr.length-1]);
-  if(!p1||!p2||!p3) return false;
-  const d1=(p2-p1)/p1*100, d2=(p3-p2)/p2*100;
-  return d1<-8 && d2<-8;
-}
-function shouldAutoDeload(stats){
-  const fatigueHigh = Object.values(stats).some(v=>v.fatigue>120);
-  const drop = EXERCISES_DB.some(e=>performanceDropTwoSessions(e.id));
-  return fatigueHigh || drop;
-}
-function scientificRestSeconds(exDef, isLastSet=false){
-  let rest=90;
-  const m=getMuscle(exDef?.primary_muscle_id||'');
-  if(exDef?.primary_muscle_id==='calves') rest= Math.max(60, Math.min(75, m?.rest_isolation_seconds||60));
-  else if(exDef?.type==='compound') rest = Math.max(150, Math.min(210, m?.rest_compound_seconds||180));
-  else rest = Math.max(60, Math.min(120, m?.rest_isolation_seconds||90));
-  if(isLastSet) rest += 20;
-  return rest;
-}
-function deterministicTTS(exDef, phase, fatigueHigh, lastSet, step){
-  const muscle=getMuscle(exDef?.primary_muscle_id||'')?.name || 'grupo alvo';
-  if(step==='pre') return `Posicione corretamente para ${muscle}. Controle total.`;
-  if(step==='exec'){ const tempo=(getMuscle(exDef?.primary_muscle_id||'')?.tempo_default||'3-1-1').replaceAll('-', '...'); return `Execução ${tempo}.`; }
-  if(step==='rest') return exDef?.type==='compound' ? 'Recuperação neural. Prepare-se para a próxima.' : 'Recupere a musculatura e mantenha técnica perfeita.';
-  if(fatigueHigh) return 'Reduza intensidade e mantenha execução perfeita.';
-  if(lastSet) return 'Foco máximo na técnica.';
-  return phase==='Intensification' ? 'Bloco intenso, controle total.' : 'Execução limpa e consistente.';
-}
-function generateDeterministicWorkout(input){
-  const {days, environment, level, phase, weeklyStats}=input;
-  const split = days<=3 ? 'Full Body' : days===4 ? 'Upper/Lower' : 'Push/Pull/Legs';
-  const block = PROGRAM_BLOCKS.find(b=>b.phase===phase) || PROGRAM_BLOCKS[0];
-  const globalScore = computePerformanceGlobalScore().score;
-  const scoreAdjust = globalScore<60 ? 0.95 : 1;
-  const volMult = block.volume_multiplier * scoreAdjust;
-  const repRange = phase==='Intensification' ? {compound:'4-6',isolation:'8-10'} : phase==='Deload' ? {compound:'6-8',isolation:'6-8'} : {compound:'6-8',isolation:'8-12'};
-  const pool = EXERCISES_DB.filter(e=>e.equipment_type===environment||e.equipment_type==='ambos');
-  const main=pool.filter(e=>e.type==='compound');
-  const iso=pool.filter(e=>e.type==='isolation');
-  const len=pool.filter(e=>e.resistance_curve==='lengthened');
-  const setsBase = level==='iniciante'?2:level==='intermediario'?3:4;
-  return {
-    split, block, repRange,
-    distribution:{main:Math.round(setsBase*0.4*10)/10, secondary:Math.round(setsBase*0.3*10)/10, iso:Math.round(setsBase*0.2*10)/10, lengthened:Math.round(setsBase*0.1*10)/10},
-    picks:[main[0], main[1], iso[0], len[0]].filter(Boolean),
-    volumeMultiplier: Number(volMult.toFixed(2)),
-    weeklyStats
-  };
-}
-function progressionRule(perf, rangeTop){
-  if(perf.reps>=rangeTop && perf.RPE<=8) return 'Aumentar carga +2%';
-  if(perf.RPE>=9.5) return 'Manter carga atual';
-  if(perf.reps<rangeTop) return 'Reduzir carga -2%';
-  return 'Manter';
-}
-function computePerformanceGlobalScore(){
-  const k=todayKey();
-  const treino=Math.min(100, Math.round((S.training.history.filter(x=>x.date===k).length/8)*100));
-  const sleep = nowMin() <= hmToMin(S.windows.sleep)+30 ? 78 : 52;
-  const disciplina=Math.round(todayProgress().pct);
-  const foco=Math.round(((S.diary.history.find(x=>x.date===k)?.focus||3)/5)*100);
-  const score=Math.round(treino*0.40 + sleep*0.25 + disciplina*0.20 + foco*0.15);
-  return {treino,sleep,disciplina,foco,score};
-}
-
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-function weekRange(offset=0){
-  const now=new Date();
-  const d=new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const day=d.getDay();
-  const diff=(day+6)%7;
-  d.setDate(d.getDate()-diff + (offset*7));
-  const start=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  const end=new Date(start); end.setDate(end.getDate()+7);
-  return {start,end};
-}
-function getMuscleDashboardPayload(){
-  const weeks=[-3,-2,-1,0].map((o)=>weekRange(o));
-  const perf=S.training.performance||[];
-  const perWeek=weeks.map((w)=>{
-    const row={};
-    for(const m of MUSCLE_GROUPS){ row[m.id]={sets:0, stimulus:0, fatigueRaw:0}; }
-    for(const p of perf){
-      const t=new Date(p.date).getTime();
-      if(Number.isNaN(t) || t<w.start.getTime() || t>=w.end.getTime()) continue;
-      const ex=EXERCISES_DB.find(e=>e.id===p.exercise_id); if(!ex) continue;
-      const met=calcSetDeterministicMetrics(p, ex);
-      row[ex.primary_muscle_id].sets += 1;
-      row[ex.primary_muscle_id].stimulus += met.stimulus;
-      row[ex.primary_muscle_id].fatigueRaw += met.effectiveReps;
-      if(ex.secondary_muscle_id && row[ex.secondary_muscle_id]) row[ex.secondary_muscle_id].sets += 0.5;
-    }
-    for(const m of MUSCLE_GROUPS){ row[m.id].fatigueRaw = row[m.id].fatigueRaw * m.fatigue_factor; }
-    return row;
-  });
-
-  const current=perWeek[3], prev=perWeek[2];
-  const muscles=MUSCLE_GROUPS.map((m)=>{
-    const weekly_sets=Number((current[m.id]?.sets||0).toFixed(1));
-    const stimulusRaw=current[m.id]?.stimulus||0;
-    const mav_mid=(m.MAV_min+m.MAV_max)/2;
-    const mav_percent= mav_mid>0 ? Math.round((weekly_sets/mav_mid)*100) : 0;
-    const stimulusTarget=Math.max(1, weekly_sets*1.0);
-    const stimulus_score=Math.round(clamp((stimulusRaw/stimulusTarget)*100,0,100));
-    const fatigueRaw=current[m.id]?.fatigueRaw||0;
-    const fatigueCap=Math.max(1,m.MRV*8);
-    const fatigue_score=Math.round(clamp((fatigueRaw/fatigueCap)*100,0,100));
-    const status = mav_percent<70 ? 'subestimulado' : mav_percent<=110 ? 'ideal' : mav_percent<=130 ? 'alto' : 'excesso';
-
-    const anchors=EXERCISES_DB.filter(e=>e.primary_muscle_id===m.id).slice(0,2).map(e=>e.id);
-    const bestByWeek=weeks.map((w)=>{
-      const vals=perf.filter(p=>anchors.includes(p.exercise_id)).filter(p=>{const t=new Date(p.date).getTime(); return t>=w.start.getTime() && t<w.end.getTime();}).map(p=>estimate1RM(p.weight,p.reps));
-      return vals.length?Math.max(...vals):0;
-    });
-    const first=bestByWeek[0]||0, last=bestByWeek[3]||0;
-    const trend_pct = first>0 ? Math.round(((last-first)/first)*100) : 0;
-
-    let priority='normal';
-    if(mav_percent<70 || fatigue_score>70 || trend_pct<-8) priority='alta';
-    else if(mav_percent>110 || trend_pct<0) priority='media';
-
-    return {
-      muscle_id:m.id,
-      name:m.name,
-      weekly_sets,
-      mav_min:m.MAV_min,
-      mav_max:m.MAV_max,
-      mrv:m.MRV,
-      mav_percent,
-      status,
-      stimulus_score,
-      fatigue_score,
-      trend_4w:{
-        sets:perWeek.map((wk)=>Number((wk[m.id]?.sets||0).toFixed(1))),
-        stimulus:perWeek.map((wk)=>Math.round(clamp((wk[m.id]?.stimulus||0),0,100))),
-        fatigue:perWeek.map((wk)=>Math.round(clamp(((wk[m.id]?.fatigueRaw||0)/Math.max(1,m.MRV*8))*100,0,100)))
-      },
-      trend_pct,
-      priority,
-      score_priority: (100-clamp(mav_percent,0,160)) + fatigue_score + Math.max(0,-trend_pct)
-    };
-  });
-
-  const alerts=[];
-  for(const m of muscles){
-    const prevSets=Number((prev[m.muscle_id]?.sets||0).toFixed(1));
-    const prevMid=(m.mav_min+m.mav_max)/2;
-    const prevPct= prevMid>0 ? Math.round((prevSets/prevMid)*100) : 0;
-    if(m.mav_percent<70 && prevPct<70){ alerts.push({type:'undertrained',muscle:m.name,message:`${m.name} abaixo de 70% do MAV por 2 semanas. Aumente +2 sets/semana.`}); }
-    if(m.mav_percent>130){ alerts.push({type:'excess',muscle:m.name,message:`${m.name} acima de 130% do MAV. Reduzir -2 sets e monitorar recuperação.`}); }
-    if(m.trend_pct<-8 && m.fatigue_score>75){ alerts.push({type:'overreaching',muscle:m.name,message:`Sinal de overreaching em ${m.name}: queda >8% com fadiga alta. Deload parcial recomendado.`}); }
-  }
-
-  const wr=weekRange(0);
-  return {
-    week_start: wr.start.toISOString().slice(0,10),
-    week_end: wr.end.toISOString().slice(0,10),
-    muscles,
-    top_priorities:[...muscles].sort((a,b)=>b.score_priority-a.score_priority),
-    alerts
-  };
-}
-function heatClass(status){ return status==='subestimulado' ? 'heat-sub' : status==='ideal' ? 'heat-ideal' : status==='alto' ? 'heat-high' : 'heat-excess'; }
-function trendBars(values){
-  const max=Math.max(1,...values);
-  return `<div class='trend-bars'>${values.map(v=>`<span style='height:${Math.max(6,Math.round((v/max)*32))}px' title='${v}'></span>`).join('')}</div>`;
-}
-function muscleDashboardHTML(payload){
-  const byId={}; payload.muscles.forEach(m=>byId[m.muscle_id]=m);
-  const zone=(id,label)=>{ const m=byId[id]; if(!m) return ''; return `<button class='muscle-zone ${heatClass(m.status)}' data-muscle-open='${m.muscle_id}'><strong>${label}</strong><small>${m.weekly_sets} sets • ${m.mav_percent}% MAV</small><small>Stim ${m.stimulus_score} • ${m.status}</small></button>`; };
-  const renderPriority=(arr)=>arr.map((m,i)=>`<div class='item'><div><div class='name'>${i+1}. ${m.name}</div><div class='meta'>MAV ${m.mav_percent}% • Fadiga ${m.fatigue_score} • Tendência ${m.trend_pct}%</div></div><span class='badge'>${m.priority}</span></div>`).join('');
-  const priorities=renderPriority(payload.top_priorities);
-  const trends=payload.muscles.map((m)=>`<div class='item trend-item'><div><div class='name'>${m.name}</div><div class='meta'>Sets</div>${trendBars(m.trend_4w.sets)}<div class='meta'>Stimulus</div>${trendBars(m.trend_4w.stimulus)}<div class='meta'>Fadiga</div>${trendBars(m.trend_4w.fatigue)}</div><span class='badge'>${m.trend_pct}%</span></div>`).join('');
-  const alerts=payload.alerts.length ? payload.alerts.map(a=>`<div class='item'><div><div class='name'>${a.muscle}</div><div class='meta'>${a.message}</div></div><span class='badge'>${a.type}</span></div>`).join('') : '<div class="hint">Sem alertas críticos nesta semana.</div>';
-  return `<div class='card'><h2>Dashboard de Músculos</h2><div class='hint'>Semana ${payload.week_start} → ${payload.week_end}</div>
-  <div class='grid'>
-    <div class='g8'>
-      <h3>Mapa do Corpo (Front/Back)</h3>
-      <div class='muscle-map'>
-        <div><div class='small'>Front</div>${zone('chest','Peito')}${zone('delts','Deltoides')}${zone('biceps','Bíceps')}${zone('quads','Quadríceps')}${zone('calves','Panturrilha')}</div>
-        <div><div class='small'>Back</div>${zone('back','Costas')}${zone('triceps','Tríceps')}${zone('hamstrings','Posterior')}</div>
-      </div>
-      <div class='legend'><span class='dot heat-sub'></span>Subestimulado <span class='dot heat-ideal'></span>Ideal <span class='dot heat-high'></span>Alto <span class='dot heat-excess'></span>Excesso</div>
-    </div>
-    <div class='g4'>
-      <h3>Top Prioridades</h3><label>Ordenar por</label><select id='prioritySort'><option value='mav'>Menor % MAV</option><option value='fatigue'>Maior fadiga</option><option value='trend'>Pior tendência</option></select>
-      <div class='list' id='priorityList'>${priorities}</div>
-    </div>
-  </div>
-  <h3>Trend 4 semanas por músculo</h3><div class='list'>${trends}</div>
-  <h3>Alertas automáticos</h3><div class='list'>${alerts}</div>
-  </div>`;
-}
-
-
-const TrainingEngine = {
-  effectiveReps(reps, rpe){ return rpe>=8 ? Math.max(0, reps - (10-rpe)) : 0; },
-  relativeIntensity(weight, estimated1RM){ return estimated1RM>0 ? weight/estimated1RM : 0; },
-  stimulus(effectiveReps, intensity, mult=1){ return effectiveReps*intensity*mult; },
-  fatigue(weeklyEffectiveReps, factor){ return weeklyEffectiveReps*factor; },
-  hypertrophyStatus(weeklySets, mg){
-    if(weeklySets<mg.MAV_min) return 'subestimulado';
-    if(weeklySets<=mg.MAV_max) return 'ideal';
-    if(weeklySets>mg.MRV) return 'excesso';
-    return 'alto';
-  },
-  shouldDeload({fatigue, threshold, perfDropTwo}){ return fatigue>threshold || perfDropTwo; },
-  adjustVolume(base, mult){ return Math.max(1, Math.round(base*mult)); }
-};
-
-const ProgressionEngine = {
-  evaluate({reps, topRange, rpe}){
-    if(reps>=topRange && rpe<=8) return {action:'increase', pct:2, message:'+2% carga'};
-    if(rpe>=9.5) return {action:'hold', pct:0, message:'manter carga'};
-    return {action:'decrease', pct:-2, message:'-2% carga'};
-  },
-  shouldReduceVolume(perfDropTwo){ return perfDropTwo; }
-};
-
-const ProgramGenerator = {
-  getProgram(env){ return env==='home' ? PERSONAL_TRAINING_DB.home : PERSONAL_TRAINING_DB.gym; },
-  getSession(name, env){ const p=this.getProgram(env); return p.sessions.find(s=>s.name===name) || p.sessions[0]; },
-  applyPhaseVolume(session, volumeMultiplier){
-    return {...session, exercises:session.exercises.map(e=>({...e, sets:TrainingEngine.adjustVolume(e.sets, volumeMultiplier)}))};
-  },
-  targetLoadFrom1RM(oneRM, repTarget){
-    const nearest=[4,6,8,10,12].reduce((a,b)=>Math.abs(b-repTarget)<Math.abs(a-repTarget)?b:a,8);
-    return Math.round((oneRM*(REP_TO_1RM_PCT[nearest]||0.75))*10)/10;
-  }
-};
-
-const TimerEngine = {
-  startExecutionTimer(exObj, setNo, sets){
-    const cadence = exObj.cadence || exObj.cadence_seconds || {eccentric:3,pause:1,concentric:1};
-    const repsTarget = Math.round((exObj.reps_range?.[0]+exObj.reps_range?.[1])/2);
-    startCadenceSetFlow({
-      name:exObj.name,
-      cadence_seconds:cadence,
-      reps_range:exObj.reps_range,
-      sets:exObj.sets,
-      type:exObj.type||'compound',
-      muscle:exObj.muscle||''
-    },{repsTarget,setNo,sets});
-  },
-  startRestTimer(restSec){ startWorkoutTimer(restSec,'rest'); },
-  pause(){ cadenceRunner.pause=!cadenceRunner.pause; },
-  skip(){ clearInterval(cadenceInterval); cadenceRunner.left=0; }
-};
-
-const VoiceEngine = {
-  preSet(ex){ mentorSpeak(`Posicione corretamente em ${ex.name}. Controle total.`); },
-  eccentric(){ cadenceSpeak('eccentric'); },
-  pause(){ cadenceSpeak('pause'); },
-  concentric(){ cadenceSpeak('concentric'); },
-  restStart(){ cadenceSpeak('rest'); },
-  lastSet(){ cadenceSpeak('last'); },
-  fatigueWarning(){ cadenceSpeak('fatigue'); }
-};
 
 const AnalyticsDashboard = {
   summary(k){
@@ -948,7 +530,7 @@ function mentorSpeak(text){
 }
 function startWorkoutTimer(sec, mode, opts={}){
   const onEnd=opts.onEnd||null;
-  workoutTimer={running:true,mode,left:sec,total:sec,startedAt:Date.now(),paused:false,warned10:false};
+  workoutTimer={running:true,mode,left:sec,total:sec,startedAt:Date.now(),paused:false,warned10:false,warnedMid:false};
   beep(mode==='exec'?980:620,.08,.1);
   mentorSpeak(mode==='exec' ? 'Iniciando execução da série. Controle total.' : 'Iniciando descanso. Respire e prepare a próxima série.');
   clearInterval(workoutInterval);
@@ -959,10 +541,12 @@ function startWorkoutTimer(sec, mode, opts={}){
     if(el) el.textContent=fmtTimerSec(workoutTimer.left);
     if(state) state.textContent=workoutTimer.mode==='exec'?'EXECUÇÃO':'DESCANSO';
 
+    if(workoutTimer.mode==='rest' && !workoutTimer.warnedMid && workoutTimer.left===Math.floor(workoutTimer.total/2)){ workoutTimer.warnedMid=true; VoiceEngine.dispatch(VOICE_STATES.REST_MID,{}); }
+
     if(featureOn('auto10sWarn') && workoutTimer.left===10 && !workoutTimer.warned10){
       workoutTimer.warned10=true;
       beep(1400,.06,.11);
-      mentorSpeak('Faltam dez segundos.');
+      VoiceEngine.restEnd({});
       showToast('⚠️ 10 segundos restantes');
     }
 
@@ -1015,6 +599,7 @@ function advanceProgramSet(){
     addXP(120,'train');
     adjustIntegrity(+3);
     showToast('Treino programado concluído');
+    VoiceEngine.workoutComplete({});
   }
   saveState();
 }
@@ -1180,7 +765,7 @@ function viewTreino(){
     const source = template || {name:ex?.name||'Exercício', reps_range:[8,10], cadence:{eccentric:3,pause:1,concentric:1}, sets:ex?.sets||3, rest_sec:120, type:'compound', muscle:'Peito'};
     if(autoDeload) VoiceEngine.fatigueWarning();
     VoiceEngine.preSet(source);
-    TimerEngine.startExecutionTimer(source,(S.training.program.session?.setNo||1),(source.sets||3));
+    TimerEngine.startExecutionTimer(source,(S.training.program.session?.setNo||1),(source.sets||3),{phase:phaseName,fatigueScore:autoDeload?80:45});
   };
   $('#btnCadencePause').onclick=()=>{ TimerEngine.pause(); showToast(cadenceRunner.pause?'Cadência pausada':'Cadência retomada'); };
   $('#btnCadenceStop').onclick=()=>{ stopCadenceFlow(); showToast('Cadência encerrada'); };
@@ -1220,6 +805,7 @@ function viewTreino(){
     const current1RM = Number(S.training.oneRMByExercise?.[exDef.id]||0);
     if(newEstimated1RM > current1RM){
       S.training.oneRMByExercise[exDef.id]=newEstimated1RM;
+      VoiceEngine.prDetected({exerciseName:ex.name,rpe:Number(ex.rpe)||8});
     }
     const met=calcSetDeterministicMetrics(perf, exDef);
     const top=Number(String(ex.reps).split('-').pop())||8;
@@ -1339,13 +925,13 @@ function viewCfg(){
     ['dopaminePopups','Popups de recompensa'],['comboDecay','Combo decay automático'],['workoutAutoFlow','Fluxo automático treino'],
     ['studyVoice','Voz no timer de estudo'],['aiInsights','Insights IA de treino']
   ];
-  view.innerHTML=`<div class='card'><h2>Config geral</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo Change</label><select id='cfgModeChange'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>Duração modo change (min)</label><input id='cfgModeMins' type='number' min='10' max='240' step='5' value='${S.modeChange.durationMin||45}'></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
+  view.innerHTML=`<div class='card'><h2>Config geral</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo Change</label><select id='cfgModeChange'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>Duração modo change (min)</label><input id='cfgModeMins' type='number' min='10' max='240' step='5' value='${S.modeChange.durationMin||45}'></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Voz treinador (modo)</label><select id='cfgVoiceMode'><option value='technical'>Técnico</option><option value='hardcore'>Hardcore</option><option value='silent'>Silencioso</option></select></div><div class='g6'><label>Intensidade da voz</label><select id='cfgVoiceIntensity'><option value='1'>1 - leve</option><option value='2'>2 - moderado</option><option value='3'>3 - agressivo</option></select></div><div class='g6'><label>Frequência de fala</label><select id='cfgVoiceFreq'><option value='normal'>Normal</option><option value='reduced'>Reduzida</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
   <div class='card'><h2>Controle total (ativar/desativar tudo)</h2><div class='list'>${toggleRows.map(([k,label])=>`<div class='item'><div><div class='name'>${label}</div><div class='meta'>Chave: ${k}</div></div><button class='btn ${featureOn(k)?'primary':'ghost'}' data-ft='${k}'>${featureOn(k)?'ATIVO':'INATIVO'}</button></div>`).join('')}</div></div>
   <div class='card'><h2>Música</h2><div class='hint'>Upload mp3/m4a salvo offline no IndexedDB.</div><input id='musicFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR</button></div></div>
   <div class='card'><h2>Backup</h2><div class='row'><button class='btn' id='btnExport'>EXPORTAR JSON</button><button class='btn' id='btnImport'>IMPORTAR JSON</button><input id='importFile' type='file' accept='application/json' style='display:none'></div><button class='btn danger' id='btnWipe'>RESET TOTAL</button>
   <button class='btn' id='btnForceRefresh'>FORÇAR ATUALIZAÇÃO APP</button></div>`;
-  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgModeChange').value=S.modeChange.enabled?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
-  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.modeChange.enabled=$('#cfgModeChange').value==='1'; S.modeChange.durationMin=Math.max(10,Math.min(240,Number($('#cfgModeMins').value)||45)); if(!S.modeChange.enabled) S.modeChange.active=null; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
+  $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgModeChange').value=S.modeChange.enabled?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio'; $('#cfgVoiceMode').value=(S.training.voice||{}).mode||'hardcore'; $('#cfgVoiceIntensity').value=String((S.training.voice||{}).intensity||2); $('#cfgVoiceFreq').value=(S.training.voice||{}).frequency||'normal';
+  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.modeChange.enabled=$('#cfgModeChange').value==='1'; S.modeChange.durationMin=Math.max(10,Math.min(240,Number($('#cfgModeMins').value)||45)); if(!S.modeChange.enabled) S.modeChange.active=null; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.training.voice={...(S.training.voice||{}), mode:$('#cfgVoiceMode').value, intensity:Number($('#cfgVoiceIntensity').value)||2, frequency:$('#cfgVoiceFreq').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
   view.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{ const key=b.dataset.ft; S.features[key]=!S.features[key]; saveState(); render(); });
   $('#musicFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('music',f); await loadMusicIfAny(); showToast('Música salva'); };
   $('#btnMusicPlay').onclick=()=>{ startMusic(); showToast('Play'); };
