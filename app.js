@@ -264,113 +264,197 @@ function viewProtocolo(){ let t=getTodayObj(S.proto.history); if(!t){ t={date:to
   $('#btnProtoClear').onclick=()=>{t.morningDone=[];t.nightDone=[];adjustIntegrity(-4);saveState();render();};
 }
 
-const DIET_FAVORITES = [
-  {name:'Arroz + feijão + carne', kcal:720,p:42,c:78,g:22},
-  {name:'Frango + arroz', kcal:580,p:42,c:70,g:10},
-  {name:'Ovo + pão', kcal:430,p:22,c:40,g:20},
-  {name:'Banana', kcal:105,p:1,c:27,g:0},
-  {name:'Café', kcal:25,p:0,c:4,g:1},
-  {name:'Shake proteína', kcal:260,p:24,c:28,g:3},
-  {name:'Almoço caseiro', kcal:690,p:38,c:80,g:18},
-  {name:'Janta padrão', kcal:560,p:40,c:54,g:16}
+const FOOD_DB = [
+  {name:'Arroz cozido', grams:100, kcal:130,p:2.5,c:28,g:0.3,fiber:0.4,sodium:1,micros:{vitA:0,vitB1:0.02,vitB2:0.01,vitB3:0.4,vitB5:0.4,vitB6:0.1,vitB9:3,vitB12:0,vitC:0,vitD:0,vitE:0.1,vitK:0.1,calcio:10,ferro:0.2,magnesio:12,zinco:0.5,potassio:35,selenio:7,fosforo:43,iodo:2}},
+  {name:'Feijão carioca cozido', grams:100, kcal:77,p:4.8,c:14,g:0.5,fiber:8.5,sodium:1,micros:{vitA:0,vitB1:0.1,vitB2:0.03,vitB3:0.3,vitB5:0.2,vitB6:0.1,vitB9:150,vitB12:0,vitC:0,vitD:0,vitE:0.1,vitK:2,calcio:27,ferro:1.3,magnesio:42,zinco:0.8,potassio:255,selenio:1,fosforo:87,iodo:1}},
+  {name:'Peito de frango grelhado', grams:100, kcal:165,p:31,c:0,g:3.6,fiber:0,sodium:74,micros:{vitA:13,vitB1:0.07,vitB2:0.1,vitB3:14,vitB5:1.1,vitB6:0.6,vitB9:4,vitB12:0.3,vitC:0,vitD:0,vitE:0.3,vitK:0.3,calcio:15,ferro:1,magnesio:29,zinco:1,potassio:256,selenio:24,fosforo:220,iodo:6}},
+  {name:'Carne bovina magra', grams:100, kcal:217,p:26,c:0,g:12,fiber:0,sodium:72,micros:{vitA:0,vitB1:0.06,vitB2:0.15,vitB3:5.8,vitB5:0.5,vitB6:0.4,vitB9:6,vitB12:2.2,vitC:0,vitD:0.1,vitE:0.2,vitK:1.5,calcio:18,ferro:2.6,magnesio:22,zinco:4.8,potassio:318,selenio:18,fosforo:200,iodo:7}},
+  {name:'Aveia', grams:100, kcal:389,p:17,c:66,g:7,fiber:10.6,sodium:2,micros:{vitA:0,vitB1:0.76,vitB2:0.14,vitB3:0.96,vitB5:1.3,vitB6:0.12,vitB9:56,vitB12:0,vitC:0,vitD:0,vitE:0.4,vitK:2,calcio:54,ferro:4.7,magnesio:177,zinco:4,potassio:429,selenio:28,fosforo:523,iodo:6}},
+  {name:'Banana', grams:100, kcal:89,p:1.1,c:23,g:0.3,fiber:2.6,sodium:1,micros:{vitA:3,vitB1:0.03,vitB2:0.07,vitB3:0.7,vitB5:0.3,vitB6:0.37,vitB9:20,vitB12:0,vitC:8.7,vitD:0,vitE:0.1,vitK:0.5,calcio:5,ferro:0.3,magnesio:27,zinco:0.2,potassio:358,selenio:1,fosforo:22,iodo:2}},
+  {name:'Ovo inteiro', grams:100, kcal:143,p:13,c:1.1,g:9.5,fiber:0,sodium:142,micros:{vitA:160,vitB1:0.04,vitB2:0.5,vitB3:0.1,vitB5:1.4,vitB6:0.17,vitB9:47,vitB12:1.1,vitC:0,vitD:2,vitE:1.1,vitK:0.3,calcio:56,ferro:1.8,magnesio:12,zinco:1.3,potassio:138,selenio:30,fosforo:198,iodo:24}},
+  {name:'Batata doce', grams:100, kcal:86,p:1.6,c:20,g:0.1,fiber:3,sodium:55,micros:{vitA:709,vitB1:0.08,vitB2:0.06,vitB3:0.6,vitB5:0.8,vitB6:0.2,vitB9:11,vitB12:0,vitC:2.4,vitD:0,vitE:0.3,vitK:1.8,calcio:30,ferro:0.6,magnesio:25,zinco:0.3,potassio:337,selenio:0.6,fosforo:47,iodo:1}},
+  {name:'Iogurte natural', grams:100, kcal:61,p:3.5,c:4.7,g:3.3,fiber:0,sodium:46,micros:{vitA:27,vitB1:0.04,vitB2:0.14,vitB3:0.1,vitB5:0.4,vitB6:0.04,vitB9:7,vitB12:0.4,vitC:0.6,vitD:0.1,vitE:0.1,vitK:0.2,calcio:121,ferro:0.1,magnesio:12,zinco:0.6,potassio:155,selenio:3,fosforo:95,iodo:37}},
+  {name:'Salmão', grams:100, kcal:208,p:20,c:0,g:13,fiber:0,sodium:59,micros:{vitA:40,vitB1:0.2,vitB2:0.4,vitB3:8.6,vitB5:1.6,vitB6:0.9,vitB9:25,vitB12:3.2,vitC:3.9,vitD:10,vitE:1.1,vitK:0.1,calcio:9,ferro:0.3,magnesio:29,zinco:0.6,potassio:363,selenio:36,fosforo:252,iodo:30}},
+  {name:'Castanhas', grams:100, kcal:607,p:20,c:21,g:54,fiber:8,sodium:12,micros:{vitA:1,vitB1:0.42,vitB2:0.06,vitB3:1.1,vitB5:0.5,vitB6:0.3,vitB9:22,vitB12:0,vitC:0.5,vitD:0,vitE:5.7,vitK:34,calcio:114,ferro:2.8,magnesio:260,zinco:3,potassio:565,selenio:9,fosforo:484,iodo:4}},
+  {name:'Whey protein', grams:30, kcal:120,p:24,c:3,g:1.5,fiber:0.4,sodium:70,micros:{vitA:0,vitB1:0.04,vitB2:0.09,vitB3:0.3,vitB5:0.2,vitB6:0.1,vitB9:8,vitB12:0.2,vitC:0,vitD:0,vitE:0.1,vitK:0,calcio:120,ferro:0.3,magnesio:20,zinco:0.5,potassio:160,selenio:4,fosforo:100,iodo:3}}
 ];
-const SIZE_PRESETS = {pequena:{kcal:320,p:18,c:28,g:12},normal:{kcal:560,p:34,c:52,g:18},grande:{kcal:820,p:42,c:78,g:28},exagerei:{kcal:1200,p:34,c:130,g:46}};
-const OFF_PLAN_PRESETS = {doce:{kcal:380,p:4,c:58,g:16},fast_food:{kcal:980,p:28,c:88,g:52},ansiedade:{kcal:540,p:10,c:65,g:24},belisquei:{kcal:240,p:6,c:26,g:12},ataque_alimentar:{kcal:1450,p:34,c:170,g:60}};
+const MICRO_TARGETS = {vitA:900,vitB1:1.2,vitB2:1.3,vitB3:16,vitB5:5,vitB6:1.7,vitB9:400,vitB12:2.4,vitC:90,vitD:15,vitE:15,vitK:120,calcio:1000,ferro:8,magnesio:420,zinco:11,potassio:3400,selenio:55,fosforo:700,iodo:150};
+const PHYSIO_MODES = {
+  cutting:{label:'Cutting',rate:[-0.8,-0.5],energy:-380,proteinKg:2.2,fatKg:0.7,carbTiming:'Carbo alto pré/pós treino'},
+  aggressive:{label:'Cutting agressivo',rate:[-1.2,-1],energy:-620,proteinKg:2.4,fatKg:0.65,carbTiming:'Carbo focado apenas janela de treino'},
+  maintenance:{label:'Manutenção',rate:[-0.1,0.1],energy:0,proteinKg:2.0,fatKg:0.8,carbTiming:'Carbo distribuído uniforme'},
+  lean_bulk:{label:'Lean Bulk',rate:[0.25,0.5],energy:240,proteinKg:1.9,fatKg:0.8,carbTiming:'Carbo progressivo no pré e intra'}
+};
+const DIET_FAVORITES = [
+  {name:'Arroz + feijão + carne', grams:450, foods:[['Arroz cozido',180],['Feijão carioca cozido',120],['Carne bovina magra',150]]},
+  {name:'Frango + arroz', grams:350, foods:[['Arroz cozido',170],['Peito de frango grelhado',180]]},
+  {name:'Ovo + pão', grams:220, foods:[['Ovo inteiro',120],['Aveia',40],['Banana',60]]},
+  {name:'Banana', grams:100, foods:[['Banana',100]]},
+  {name:'Café', grams:30, foods:[['Iogurte natural',100]]},
+  {name:'Shake proteína', grams:30, foods:[['Whey protein',30]]},
+  {name:'Almoço caseiro', grams:500, foods:[['Arroz cozido',200],['Feijão carioca cozido',120],['Peito de frango grelhado',180]]},
+  {name:'Janta padrão', grams:420, foods:[['Batata doce',200],['Peito de frango grelhado',180],['Castanhas',40]]}
+];
+const SIZE_PRESETS = {pequena:0.75,medio:1,grande:1.3};
 const TRIGGER_OPTIONS = ['fome','ansiedade','tedio','estresse','social'];
 
-function calcTargetsAuto(){
-  const w=S.targets.weightKg,bf=S.targets.bfPct;
-  const d=ensureDietToday();
-  const recent=(S.diet.history||[]).slice(-14).flatMap(x=>x.weights||[]).map(x=>x.kg).filter(Boolean);
-  const trend=recent.length>=2 ? recent[recent.length-1]-recent[0] : 0;
-  const weekTrain=S.training.history.filter(x=>{ const dt=new Date(x.date||todayKey()); return (Date.now()-dt.getTime())<=7*86400000; }).length;
-  const lbm=w*(1-bf/100); const bmr=370+21.6*lbm;
-  const activityMult=weekTrain>=12?1.72:weekTrain>=6?1.58:1.45;
-  let kcal=bmr*activityMult-430;
-  if(trend<-0.9) kcal+=180;
-  if(trend>0.5) kcal-=120;
-  const p=Math.round(Math.max(150,2.1*w)); const g=Math.round(.75*w); const c=Math.max(60,Math.round((kcal-(p*4+g*9))/4));
-  d.autoTargets={kcal:Math.round(kcal),p,c,g,deficit:Math.round((bmr*activityMult)-kcal),trendKg:Math.round(trend*10)/10};
-  return d.autoTargets;
+function foodByName(name){ return FOOD_DB.find(x=>x.name===name); }
+function microsZero(){ const m={}; Object.keys(MICRO_TARGETS).forEach(k=>m[k]=0); return m; }
+function sumMicros(base,add,factor=1){ Object.keys(base).forEach(k=>base[k]+=((add[k]||0)*factor)); }
+function mealFromFoods(label, foods){
+  const r={name:label,grams:0,kcal:0,p:0,c:0,g:0,fiber:0,sodium:0,micros:microsZero()};
+  foods.forEach(([fname,grams])=>{ const f=foodByName(fname); if(!f) return; const mult=grams/f.grams; r.grams+=grams; r.kcal+=f.kcal*mult; r.p+=f.p*mult; r.c+=f.c*mult; r.g+=f.g*mult; r.fiber+=f.fiber*mult; r.sodium+=f.sodium*mult; sumMicros(r.micros,f.micros,mult); });
+  return r;
 }
 function ensureDietToday(){
   let d=getTodayObj(S.diet.history);
-  if(!d){ d={date:todayKey(), entries:[], triggerMap:{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}, favoritesStats:{}, weights:[], autoTargets:null, selections:{cafe:null,almoco:null,lanche:null,jantar:null}, mult:{cafe:1,almoco:1,lanche:1,jantar:1}, locked:{cafe:false,almoco:false,lanche:false,jantar:false}}; S.diet.history.push(d); }
-  d.entries=d.entries||[]; d.triggerMap=d.triggerMap||{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.favoritesStats=d.favoritesStats||{}; d.weights=d.weights||[];
+  if(!d){ d={date:todayKey(), mode:'cutting', entries:[], triggerMap:{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}, favoritesStats:{}, weights:[], routine:{steps:8000,awakeHours:16,activityLevel:'moderada'}, mental:{fatigue:45,compulsion:0}, autoTargets:null, weeklyAdjust:null}; S.diet.history.push(d); }
+  d.entries=d.entries||[]; d.weights=d.weights||[]; d.favoritesStats=d.favoritesStats||{}; d.mode=d.mode||'cutting';
+  d.triggerMap=d.triggerMap||{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.routine=d.routine||{steps:8000,awakeHours:16,activityLevel:'moderada'}; d.mental=d.mental||{fatigue:45,compulsion:0};
   return d;
 }
+function collectIntegratedSignals(){
+  const d=ensureDietToday(), k=todayKey();
+  const weekTrain=S.training.history.filter(x=>{ const dt=new Date(x.date||k); return (Date.now()-dt.getTime())<=7*86400000; });
+  const volume=weekTrain.length;
+  const daysTrained=new Set(weekTrain.map(x=>x.date)).size;
+  const avgReps=weekTrain.reduce((a,e)=>a+((e.sets||[]).reduce((s,it)=>s+(Number(it.reps)||0),0)),0)/Math.max(1,volume);
+  const intensity=avgReps<=6?0.9:avgReps<=10?0.78:0.65;
+  const cardioMinutes=Math.round(volume*8);
+  const gastoTreino=Math.round(volume*42 + cardioMinutes*7);
+  const shapeWeights=(S.diet.history||[]).slice(-14).flatMap(x=>x.weights||[]).map(x=>x.kg).filter(Boolean);
+  const weightNow=shapeWeights.at(-1)||S.targets.weightKg;
+  const weightAvg7=(shapeWeights.slice(-7).reduce((a,b)=>a+b,0)/Math.max(1,shapeWeights.slice(-7).length))||weightNow;
+  const trendWeek=((shapeWeights.length>=8)?(shapeWeights.at(-1)-shapeWeights.at(-8)):0);
+  const bf=S.targets.bfPct;
+  const shape={weightNow,weightAvg7,bf,trendWeek,measurements:{cintura:92,braco:39,coxa:62}};
+  const rotina={steps:d.routine.steps,awakeHours:d.routine.awakeHours,activity:d.routine.activityLevel};
+  const mental={compulsion:d.mental.compulsion+(d.entries.filter(x=>x.mode==='realidade').length),fatigue:d.mental.fatigue};
+  return {treino:{volume,gastoTreino,daysTrained,intensity,cardioMinutes},shape,rotina,mental};
+}
 function sumDiet(d){
-  let kcal=0,p=0,c=0,g=0;
-  (d.entries||[]).forEach(e=>{kcal+=e.kcal||0;p+=e.p||0;c+=e.c||0;g+=e.g||0;});
-  for(const key of ['cafe','almoco','lanche','jantar']){ const i=d.selections?.[key]; if(i==null) continue; const m=MEALS[key][i], mult=d.mult[key]||1; kcal+=m.kcal*mult;p+=m.p*mult;c+=m.c*mult;g+=m.g*mult; }
-  return {kcal:Math.round(kcal),p:Math.round(p),c:Math.round(c),g:Math.round(g)};
+  const totals={kcal:0,p:0,c:0,g:0,fiber:0,sodium:0,micros:microsZero()};
+  (d.entries||[]).forEach(e=>{ totals.kcal+=e.kcal||0; totals.p+=e.p||0; totals.c+=e.c||0; totals.g+=e.g||0; totals.fiber+=e.fiber||0; totals.sodium+=e.sodium||0; sumMicros(totals.micros,e.micros||{}); });
+  ['kcal','p','c','g','fiber','sodium'].forEach(k=>totals[k]=Math.round(totals[k]));
+  return totals;
 }
-function dietStatus(t,targets){ if(t.kcal<=targets.kcal*1.02 && t.p>=targets.p) return '✅ Controle total'; if(t.kcal<=targets.kcal*1.18) return '⚠ Atenção'; return '❌ Fora do plano'; }
-function registerDietEntry(d,entry){
-  d.entries.push({...entry,at:new Date().toISOString()});
-  setLastAction({type:'dietQuickAdd'});
-  addXP(12,'diet');
-  adjustIntegrity(entry.mode==='realidade'?-1:+1);
+function dynamicTDEE(signals){
+  const lbm=signals.shape.weightAvg7*(1-signals.shape.bf/100);
+  const bmr=370+21.6*lbm;
+  const neat=signals.rotina.steps*0.035 + Math.max(0,signals.rotina.awakeHours-14)*22;
+  const treino=signals.treino.gastoTreino/7;
+  const adaptPenalty=Math.max(0,Math.abs(signals.shape.trendWeek)*120);
+  return Math.round(bmr+neat+treino-adaptPenalty);
 }
-function riskAlert(d,t,targets){
-  const late=(d.entries||[]).filter(x=>new Date(x.at).getHours()>=20).length;
-  if(late>=2) return 'Risco alto hoje à noite.';
-  if(t.p<targets.p*0.6) return 'Proteína baixa. Priorize fonte proteica na próxima refeição.';
-  if(t.kcal<targets.kcal*0.55 && (new Date().getHours()>=16)) return 'Déficit agressivo hoje. Ajuste para evitar compulsão.';
-  return 'Ritmo estável hoje.';
+function calcTargetsAuto(){
+  const d=ensureDietToday(), signals=collectIntegratedSignals(), mode=PHYSIO_MODES[d.mode]||PHYSIO_MODES.cutting;
+  const tdee=dynamicTDEE(signals);
+  let kcal=tdee+mode.energy;
+  const weeklyRate=((signals.shape.trendWeek/signals.shape.weightAvg7)*100);
+  if(weeklyRate>mode.rate[1]) kcal-=120;
+  if(weeklyRate<mode.rate[0]) kcal+=90;
+  if(signals.mental.fatigue>=70) kcal+=60;
+  const p=Math.round(mode.proteinKg*signals.shape.weightAvg7);
+  const g=Math.round(Math.max(45,mode.fatKg*signals.shape.weightAvg7));
+  const c=Math.max(60,Math.round((kcal-(p*4+g*9))/4));
+  const carbHeavy=Math.round(c*0.62), carbRest=Math.round(c*0.38);
+  d.autoTargets={kcal:Math.round(kcal),p,c,g,tdee,rateTarget:mode.rate,mode:mode.label,carbTiming:mode.carbTiming,trainCarb:carbHeavy,restCarb:carbRest,signals};
+  return d.autoTargets;
 }
-function weeklyDietReport(){
-  const days=(S.diet.history||[]).slice(-7); if(!days.length) return null;
-  const valid=days.filter(d=>(d.entries||[]).length>0);
-  const adherence=Math.round((valid.length/7)*100);
-  const kcalAvg=Math.round(valid.reduce((a,b)=>a+sumDiet(b).kcal,0)/Math.max(1,valid.length));
-  const t=ensureDietToday().autoTargets||calcTargetsAuto();
-  const estLoss=((t.kcal-kcalAvg)*30/7700);
-  const triggerCounts=valid.reduce((acc,d)=>{ for(const k of TRIGGER_OPTIONS) acc[k]=(acc[k]||0)+(d.triggerMap?.[k]||0); return acc; },{});
-  const critical=Object.entries(triggerCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'noite';
-  return {adherence,kcalAvg,critical,proj30:Math.round(estLoss*10)/10};
+function micronutrientStatus(totals){
+  return Object.entries(MICRO_TARGETS).map(([k,v])=>{ const pct=(totals.micros[k]||0)/v*100; const status=pct>=95?'✅ Adequado':pct>=70?'⚠ Baixo':'❌ Deficiente'; return {k,target:v,val:Math.round((totals.micros[k]||0)*10)/10,pct:Math.round(pct),status}; });
+}
+function suggestMicroFix(item){
+  if(item.status==='✅ Adequado') return 'Manter padrão atual.';
+  const map={magnesio:'Magnésio baixo — adicionar aveia ou castanhas.',vitD:'Vitamina D baixa — incluir salmão/sol diário ou suplementação.',ferro:'Ferro baixo — priorizar carne magra e feijão.',potassio:'Potássio baixo — adicionar banana e batata doce.',iodo:'Iodo baixo — usar sal iodado e peixes.'};
+  return map[item.k]||`${item.k} baixo — aumentar alimentos ricos nesse micronutriente.`;
 }
 function favoriteList(d){ return DIET_FAVORITES.map(f=>({f,count:d.favoritesStats[f.name]||0})).sort((a,b)=>b.count-a.count).map(x=>x.f); }
-function renderDietMode(d,mode){
-  if(mode==='favoritos') return `<div class='list'>${favoriteList(d).map((f,i)=>`<button class='btn wide ${i<2?'primary':''}' data-fav='${f.name}'>${f.name}<span class='small'> • ${f.kcal} kcal</span></button>`).join('')}</div>`;
-  if(mode==='tamanho') return `<div class='row'>${Object.keys(SIZE_PRESETS).map(k=>`<button class='btn' data-size='${k}'>${k.toUpperCase()}</button>`).join('')}</div>`;
-  if(mode==='realidade') return `<div class='list'><button class='btn danger wide' data-real='doce'>Doce</button><button class='btn danger wide' data-real='fast_food'>Fast food</button><button class='btn danger wide' data-real='ansiedade'>Ansiedade</button><button class='btn danger wide' data-real='belisquei'>Belisquei</button><button class='btn danger wide' data-real='ataque_alimentar'>Ataque alimentar</button></div>`;
-  return `<div class='row'><input id='dietVoiceInput' placeholder='Ex: Comi arroz, feijão e frango' /><button class='btn primary' id='btnVoiceParse'>Registrar voz</button></div>`;
+function registerDietEntry(d,meal,mode='favoritos'){ d.entries.push({...meal,mode,at:new Date().toISOString()}); setLastAction({type:'dietQuickAdd'}); addXP(14,'diet'); adjustIntegrity(mode==='realidade'?-1:+1); }
+function parseVoice(text){
+  const s=(text||'').toLowerCase();
+  if(!s.trim()) return null;
+  if(s.includes('arroz')&&s.includes('feijão')&&s.includes('frango')) return mealFromFoods('Voz: arroz + feijão + frango', [['Arroz cozido',180],['Feijão carioca cozido',120],['Peito de frango grelhado',170]]);
+  if(s.includes('whey')||s.includes('shake')) return mealFromFoods('Voz: shake proteína', [['Whey protein',30],['Banana',100]]);
+  if(s.includes('ovo')) return mealFromFoods('Voz: ovos', [['Ovo inteiro',150]]);
+  return mealFromFoods(`Voz: ${text}`, [['Arroz cozido',150],['Peito de frango grelhado',120]]);
 }
-function applyTrigger(d,key){ if(!TRIGGER_OPTIONS.includes(key)) return; d.triggerMap[key]=(d.triggerMap[key]||0)+1; }
-function quickTriggerButtons(){ return `<div class='row'>${TRIGGER_OPTIONS.map(t=>`<button class='btn' data-trigger='${t}'>${t}</button>`).join('')}</div>`; }
-function parseVoice(text){ const s=(text||'').toLowerCase(); if(!s.trim()) return null; if(s.includes('shake')) return DIET_FAVORITES.find(x=>x.name==='Shake proteína'); if(s.includes('banana')) return DIET_FAVORITES.find(x=>x.name==='Banana'); if(s.includes('café')) return DIET_FAVORITES.find(x=>x.name==='Café'); if(s.includes('frango')&&s.includes('arroz')) return DIET_FAVORITES.find(x=>x.name==='Frango + arroz'); if(s.includes('feijão')&&s.includes('carne')) return DIET_FAVORITES.find(x=>x.name==='Arroz + feijão + carne'); return {name:text,kcal:520,p:28,c:55,g:18}; }
+function visualEstimate(size){ const mult=SIZE_PRESETS[size]||1; return mealFromFoods(`Estimativa ${size}`, [['Arroz cozido',160*mult],['Peito de frango grelhado',130*mult],['Feijão carioca cozido',90*mult]]); }
+function applyTrigger(d,key){ if(!TRIGGER_OPTIONS.includes(key)) return; d.triggerMap[key]=(d.triggerMap[key]||0)+1; if(key==='ansiedade'||key==='estresse') d.mental.compulsion=(d.mental.compulsion||0)+1; }
+function weeklyAutoAdjust(d,targets,totals){
+  const days=(S.diet.history||[]).slice(-7); const adherence=Math.round((days.filter(x=>(x.entries||[]).length>0).length/7)*100);
+  const realTrend=((d.autoTargets?.signals?.shape?.trendWeek||0)/Math.max(1,d.autoTargets?.signals?.shape?.weightAvg7||1))*100;
+  let action='Manter macros'; let kcalDelta=0;
+  if(realTrend>-0.3 && d.mode!=='lean_bulk'){ action='Estagnado: reduzir 120 kcal'; kcalDelta=-120; }
+  if(realTrend<-1.3 && d.mode!=='lean_bulk'){ action='Perda excessiva: subir 90 kcal'; kcalDelta=90; }
+  if(d.autoTargets.signals.mental.fatigue>72){ action+=' + subir carbo treino'; }
+  d.weeklyAdjust={adherence,realTrend:Math.round(realTrend*100)/100,action,kcalDelta,performance:d.autoTargets.signals.treino.intensity};
+  return d.weeklyAdjust;
+}
+function metabolicRisk(d,targets,totals){
+  const risks=[];
+  if(totals.g<targets.g*0.85) risks.push('baixa ingestão gordura');
+  if((d.entries||[]).filter(x=>x.mode==='realidade').length>=2) risks.push('fome crônica/compulsão');
+  if(targets.kcal<targets.tdee*0.72) risks.push('déficit extremo prolongado');
+  if(d.mental.fatigue>=75) risks.push('queda performance');
+  if(risks.length>=2) return {msg:'Risco metabólico alto: ativar refeed automático.',plan:'Refeed: +40% carbs por 1 dia.'};
+  if(risks.length===1) return {msg:`Risco detectado: ${risks[0]}.`,plan:'Sugerir diet break de 4-7 dias se persistir.'};
+  return {msg:'Sem risco metabólico crítico.',plan:'Seguimento padrão do protocolo.'};
+}
+function dietStatus(t,targets){ if(t.kcal<=targets.kcal*1.03 && t.p>=targets.p) return '✅ Controle total'; if(t.kcal<=targets.kcal*1.15) return '⚠ Atenção'; return '❌ Fora do plano'; }
+function microStatusHTML(micro){ return `<div class='list'>${micro.map(m=>`<div class='item'><div><div class='name'>${m.k}</div><div class='meta'>${m.val}/${m.target}</div></div><span class='badge'>${m.status}</span></div>`).join('')}</div>`; }
+
 function viewDieta(){
   const d=ensureDietToday();
-  const targets=calcTargetsAuto(); Object.assign(S.targets, targets); saveState();
-  const t=sumDiet(d); const kcalPct=Math.max(0,Math.min(100,Math.round(t.kcal/(targets.kcal||1)*100)));
-  const status=dietStatus(t,targets); const rep=weeklyDietReport();
-  const rest=Math.max(0,targets.kcal-t.kcal);
-  const score=(t.kcal<=targets.kcal?10:0)+(t.p>=targets.p?10:0)+((d.entries||[]).every(x=>x.mode!=='realidade')?15:0)+((d.entries||[]).length>=3?5:0);
-  view.innerHTML=`
-  <div class='card'><div class='kpi'><div><h2>Dieta Flaviano</h2><div class='small'>Registro em 1 toque. Sem cálculo manual.</div></div><button class='btn primary' id='btnEat'>+ COMER</button></div></div>
-  <div class='card'><div class='kpi'><div><div class='name'>Calorias hoje</div><div class='big'>${t.kcal}</div></div><div><div class='name'>Restantes</div><div class='big'>${rest}</div></div></div><div class='kpi'><div class='small'>Proteína ${t.p}g / ${targets.p}g</div><div class='badge'>${status}</div></div><div class='progress'><div style='width:${kcalPct}%'></div></div><div class='hint'>PROGRESSO CALÓRICO DO DIA</div></div>
-  <div class='card'><h2>Controle de compulsão</h2><div class='small'>O que motivou?</div>${quickTriggerButtons()}</div>
-  <div class='card'><h2>Peso corporal</h2><div class='row'><button class='btn' id='btnWeight'>Registrar peso</button><div class='small'>Média 7 dias: <b>${Math.round(((d.weights||[]).slice(-7).reduce((a,b)=>a+b.kg,0)/Math.max(1,(d.weights||[]).slice(-7).length))*10)/10||S.targets.weightKg}kg</b> • Tendência: <b>${targets.trendKg||0}kg</b></div></div></div>
-  <div class='card'><h2>Inteligência automática</h2><div class='hint'>${riskAlert(d,t,targets)}</div><div class='small'>Déficit alvo ${targets.deficit} kcal • Ajuste semanal automático ativo</div></div>
-  <div class='card'><h2>Score Dieta (Ascensão)</h2><div class='small'>XP de hoje: <b>${score}</b> • Integridade/Streak/Combo integrados</div></div>
-  <div class='card'><h2>Relatório semanal automático</h2><div class='small'>Aderência ${rep?.adherence||0}% • Média calórica ${rep?.kcalAvg||0} kcal • Horário crítico: ${rep?.critical||'—'}.</div><div class='hint'>Mantendo esse ritmo: ${rep?.proj30!=null?`${rep.proj30>0?'+':''}${rep.proj30}kg`:'0kg'} em 30 dias.</div></div>
-  <div class='card'><div class='row'><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
+  const targets=calcTargetsAuto();
+  const totals=sumDiet(d);
+  const status=dietStatus(totals,targets);
+  const weekly=weeklyAutoAdjust(d,targets,totals);
+  const micro=micronutrientStatus(totals);
+  const risk=metabolicRisk(d,targets,totals);
+  const rest=Math.max(0,targets.kcal-totals.kcal);
+  const pct=Math.max(0,Math.min(100,Math.round(totals.kcal/Math.max(1,targets.kcal)*100)));
+  const fatRate=(-weekly.realTrend||0);
+  const bfForecast=Math.max(5,Math.round((S.targets.bfPct - (Math.max(0,fatRate)*4))*10)/10);
+  const weeksTo12=Math.max(0,Math.round(((S.targets.bfPct-12)/Math.max(0.1,fatRate))*10)/10);
+  const weeksToStage=Math.max(0,Math.round(((S.targets.bfPct-6)/Math.max(0.1,fatRate))*10)/10);
+  const score=(totals.p>=targets.p?10:0)+(totals.kcal<=targets.kcal?10:0)+(micro.filter(m=>m.status==='✅ Adequado').length>=12?10:0)+(weekly.adherence>=80?10:0);
 
-  $('#btnEat').onclick=()=>{ openModal('Registrar comida','menos de 3 segundos',`<div class='row'><button class='btn primary' data-mode='favoritos'>Favoritos</button><button class='btn' data-mode='tamanho'>Tamanho</button><button class='btn danger' data-mode='realidade'>Saí da dieta</button><button class='btn' data-mode='voz'>Voz</button></div><div id='dietModePanel'>${renderDietMode(d,'favoritos')}</div>`);
-    modalBody.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ modalBody.querySelector('#dietModePanel').innerHTML=renderDietMode(d,b.dataset.mode); bindDietModeActions(d,b.dataset.mode); });
-    bindDietModeActions(d,'favoritos');
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>DIETA — Motor Metabólico</h2><div class='small'>Objetivo: cutting para competição natural</div></div><button class='btn primary' id='btnEat'>+ COMER</button></div></div>
+  <div class='card'><div class='row'><label>Modo fisiológico<select id='dietMode'>${Object.entries(PHYSIO_MODES).map(([k,v])=>`<option value='${k}' ${d.mode===k?'selected':''}>${v.label}</option>`).join('')}</select></label><div class='small'>${targets.carbTiming}</div></div></div>
+  <div class='card'><div class='kpi'><div><div class='name'>Calorias hoje</div><div class='big'>${totals.kcal}</div></div><div><div class='name'>Restantes</div><div class='big'>${rest}</div></div></div><div class='small'>Proteína ${totals.p}/${targets.p}g • Meta ${Math.round(targets.kcal)} kcal</div><div class='progress'><div style='width:${pct}%'></div></div><div class='kpi'><div class='badge'>${status}</div><div class='badge'>TDEE ${targets.tdee}</div></div></div>
+  <div class='card'><h2>Integração TREINO/SHAPE/ROTINA/MENTAL</h2><div class='small'>Treino: volume ${targets.signals.treino.volume} • dias ${targets.signals.treino.daysTrained} • intensidade ${Math.round(targets.signals.treino.intensity*100)}% • cardio ${targets.signals.treino.cardioMinutes}min</div><div class='small'>Shape: peso ${targets.signals.shape.weightNow}kg • média 7d ${Math.round(targets.signals.shape.weightAvg7*10)/10}kg • BF ${targets.signals.shape.bf}%</div><div class='small'>Rotina: ${targets.signals.rotina.steps} passos • ${targets.signals.rotina.awakeHours}h acordado • atividade ${targets.signals.rotina.activity}</div><div class='small'>Mental: fadiga ${targets.signals.mental.fatigue} • compulsão ${targets.signals.mental.compulsion}</div></div>
+  <div class='card'><h2>Periodização Nutricional</h2><div class='small'>Dia treino pesado: carbo ${targets.trainCarb}g • Dia descanso: carbo ${targets.restCarb}g • proteína constante.</div><div class='small'>Velocidade alvo: ${targets.rateTarget[0]}% a ${targets.rateTarget[1]}% peso/semana</div></div>
+  <div class='card'><h2>Controle de Compulsão</h2><div class='small'>O que motivou?</div><div class='row'>${TRIGGER_OPTIONS.map(t=>`<button class='btn' data-trigger='${t}'>${t}</button>`).join('')}</div></div>
+  <div class='card'><h2>Status Nutricional (Micronutrientes)</h2>${microStatusHTML(micro.slice(0,8))}<div class='hint'>${suggestMicroFix(micro.sort((a,b)=>a.pct-b.pct)[0])}</div></div>
+  <div class='card'><h2>Risco Metabólico</h2><div class='small'>${risk.msg}</div><div class='hint'>${risk.plan}</div></div>
+  <div class='card'><h2>Dashboard Cutting</h2><div class='small'>Taxa real perda: ${fatRate.toFixed(2)}%/semana • Previsão BF: ${bfForecast}% • Semanas até 12%: ${weeksTo12} • Semanas até palco: ${weeksToStage}</div></div>
+  <div class='card'><h2>Auto-ajuste semanal</h2><div class='small'>Aderência ${weekly.adherence}% • tendência ${weekly.realTrend}% • ajuste: ${weekly.action}</div></div>
+  <div class='card'><h2>Score Dieta (Ascensão)</h2><div class='small'>XP diário base: ${score} • integra Integridade/Combo/Streak.</div></div>
+  <div class='card'><div class='row'><button class='btn' id='btnWeight'>Registrar peso</button><button class='btn' id='btnRoutine'>Atualizar rotina/mental</button><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
+
+  $('#dietMode').onchange=(e)=>{ d.mode=e.target.value; saveState(); render(); };
+  $('#btnEat').onclick=()=>{ openModal('Registro inteligente','< 3s',`<div class='row'><button class='btn primary' data-mode='favoritos'>Favoritos</button><button class='btn' data-mode='peso'>Peso real</button><button class='btn' data-mode='visual'>Estimativa visual</button><button class='btn' data-mode='voz'>Voz</button></div><div id='dietModePanel'></div>`); const panel=()=>modalBody.querySelector('#dietModePanel');
+    const bind=(mode)=>{
+      if(mode==='favoritos') panel().innerHTML=`<div class='list'>${favoriteList(d).map(f=>`<button class='btn wide' data-fav='${f.name}'>${f.name}</button>`).join('')}</div>`;
+      if(mode==='peso') panel().innerHTML=`<div class='row'><select id='foodSel'>${FOOD_DB.map(f=>`<option>${f.name}</option>`).join('')}</select><input id='foodGrams' type='number' value='120' min='10' step='5'/><button class='btn primary' id='addFood'>Registrar</button></div>`;
+      if(mode==='visual') panel().innerHTML=`<div class='row'><button class='btn' data-size='pequena'>Pequeno</button><button class='btn' data-size='medio'>Médio</button><button class='btn' data-size='grande'>Grande</button></div>`;
+      if(mode==='voz') panel().innerHTML=`<div class='row'><input id='voiceText' placeholder='Comi arroz, feijão e frango'/><button class='btn primary' id='voiceAdd'>Registrar voz</button></div>`;
+      panel().querySelectorAll('[data-fav]').forEach(b=>b.onclick=()=>{ const fav=DIET_FAVORITES.find(x=>x.name===b.dataset.fav); const meal=mealFromFoods(fav.name,fav.foods); d.favoritesStats[fav.name]=(d.favoritesStats[fav.name]||0)+1; registerDietEntry(d,meal,'favoritos'); saveState(); closeModal(); render(); });
+      const addFood=panel().querySelector('#addFood'); if(addFood) addFood.onclick=()=>{ const f=foodByName(panel().querySelector('#foodSel').value), grams=Number(panel().querySelector('#foodGrams').value||0); if(!f||grams<=0) return; registerDietEntry(d,mealFromFoods(`${f.name} (${grams}g)`,[[f.name,grams]]),'peso'); saveState(); closeModal(); render(); };
+      panel().querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{ registerDietEntry(d,visualEstimate(b.dataset.size),'visual'); saveState(); closeModal(); render(); });
+      const voice=panel().querySelector('#voiceAdd'); if(voice) voice.onclick=()=>{ const meal=parseVoice(panel().querySelector('#voiceText').value||''); if(!meal) return showToast('Fale o que comeu'); registerDietEntry(d,meal,'voz'); saveState(); closeModal(); render(); };
+    };
+    bind('favoritos');
+    modalBody.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>bind(b.dataset.mode));
   };
-  function bindDietModeActions(day,mode){
-    modalBody.querySelectorAll('[data-fav]').forEach(btn=>btn.onclick=()=>{ const fav=DIET_FAVORITES.find(x=>x.name===btn.dataset.fav); day.favoritesStats[fav.name]=(day.favoritesStats[fav.name]||0)+1; registerDietEntry(day,{...fav,mode:'favoritos'}); saveState(); closeModal(); render(); });
-    modalBody.querySelectorAll('[data-size]').forEach(btn=>btn.onclick=()=>{ const p=SIZE_PRESETS[btn.dataset.size]; registerDietEntry(day,{name:`Refeição ${btn.dataset.size}`,...p,mode:'tamanho'}); saveState(); closeModal(); render(); });
-    modalBody.querySelectorAll('[data-real]').forEach(btn=>btn.onclick=()=>{ const p=OFF_PLAN_PRESETS[btn.dataset.real]; registerDietEntry(day,{name:`Saí da dieta: ${btn.textContent}`,...p,mode:'realidade'}); saveState(); closeModal(); render(); });
-    const parseBtn=modalBody.querySelector('#btnVoiceParse'); if(parseBtn) parseBtn.onclick=()=>{ const parsed=parseVoice(modalBody.querySelector('#dietVoiceInput').value||''); if(!parsed) return showToast('Fale o que comeu'); registerDietEntry(day,{...parsed,mode:'voz'}); saveState(); closeModal(); render(); };
-  }
-  view.querySelectorAll('[data-trigger]').forEach(btn=>btn.onclick=()=>{ applyTrigger(d,btn.dataset.trigger); saveState(); showToast('Gatilho registrado'); render(); });
-  $('#btnWeight').onclick=()=>{ const raw=prompt('Peso atual (kg):', String(S.targets.weightKg||90)); const kg=Number(raw); if(!kg||kg<30||kg>300) return showToast('Peso inválido'); d.weights.push({kg,at:new Date().toISOString()}); S.targets.weightKg=kg; setLastAction({type:'dietWeight'}); saveState(); render(); };
+
+  $('#btnWeight').onclick=()=>{ const kg=Number(prompt('Peso atual (kg):', String(S.targets.weightKg||90))); if(!kg||kg<40||kg>250) return showToast('Peso inválido'); d.weights.push({kg,at:new Date().toISOString()}); S.targets.weightKg=kg; setLastAction({type:'dietWeight'}); saveState(); render(); };
+  $('#btnRoutine').onclick=()=>{ const steps=Number(prompt('Passos/dia:', String(d.routine.steps||8000))); const awake=Number(prompt('Horas acordado:', String(d.routine.awakeHours||16))); const fatigue=Number(prompt('Fadiga percebida (0-100):', String(d.mental.fatigue||45))); if(steps>0) d.routine.steps=steps; if(awake>0) d.routine.awakeHours=awake; if(fatigue>=0) d.mental.fatigue=Math.max(0,Math.min(100,fatigue)); saveState(); render(); };
+  view.querySelectorAll('[data-trigger]').forEach(btn=>btn.onclick=()=>{ applyTrigger(d,btn.dataset.trigger); saveState(); render(); });
   $('#btnDietUndo').onclick=undoLastAction;
-  $('#btnDietReset').onclick=()=>{ d.entries=[]; d.triggerMap={fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
+  $('#btnDietReset').onclick=()=>{ d.entries=[]; d.triggerMap={fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; adjustIntegrity(-4); saveState(); render(); };
 }
 
 function getProgramAndDay(){
