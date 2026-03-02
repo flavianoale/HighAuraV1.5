@@ -223,13 +223,15 @@ function adjustIntegrity(d){ S.rpg.integrity=Math.max(0,Math.min(100,S.rpg.integ
 
 function getTodayObj(arr){ return arr.find(x=>x.date===todayKey()); }
 function upsertToday(arr,obj){ const i=arr.findIndex(x=>x.date===todayKey()); if(i>=0) arr[i]=obj; else arr.push(obj); }
-function todayProgress(){ const k=todayKey(); const proto=(S.proto.history.find(x=>x.date===k)?.morningDone?.length||0)>=3; const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0)>=25; const diet=!!(S.diet.history.find(x=>x.date===k)?.selections?.cafe); const train=S.training.history.filter(x=>x.date===k).length>=3; const bible=(S.bibleLog?.[k]===true); const done=[proto,study,diet,train,bible].filter(Boolean).length; return {proto,study,diet,train,bible,done,total:5,pct:Math.round(done/5*100)}; }
+function todayProgress(){ const k=todayKey(); const proto=(S.proto.history.find(x=>x.date===k)?.morningDone?.length||0)>=3; const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0)>=25; const dietObj=S.diet.history.find(x=>x.date===k); const diet=!!(dietObj?.entries?.length || dietObj?.selections?.cafe!=null); const train=S.training.history.filter(x=>x.date===k).length>=3; const bible=(S.bibleLog?.[k]===true); const done=[proto,study,diet,train,bible].filter(Boolean).length; return {proto,study,diet,train,bible,done,total:5,pct:Math.round(done/5*100)}; }
 
 function setLastAction(a){ S.lastAction=a; saveState(); }
 function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada pra desfazer'); const k=todayKey(); try{
   if(a.type==='proto'){ const t=getTodayObj(S.proto.history); if(t){ const arr=a.tag==='morning'?t.morningDone:t.nightDone; if(a.undo==='remove'){ const i=arr.indexOf(a.idx); if(i>=0) arr.splice(i,1);} else if(!arr.includes(a.idx)) arr.push(a.idx); }}
   if(a.type==='dietSelect'){ const d=ensureDietToday(); d.selections[a.meal]=a.prev; }
   if(a.type==='dietMult'){ const d=ensureDietToday(); d.mult[a.meal]=a.prev; }
+  if(a.type==='dietQuickAdd'){ const d=ensureDietToday(); d.entries.pop(); }
+  if(a.type==='dietWeight'){ const d=ensureDietToday(); d.weights.pop(); }
   if(a.type==='trainSet'){ const i=S.training.history.lastIndexOf(a.entry); if(i>=0) S.training.history.splice(i,1); }
   if(a.type==='studyAdd'){ for(let i=S.study.history.length-1;i>=0;i--){const x=S.study.history[i]; if(x.date===a.date&&x.minutes===a.minutes&&x.topic===a.topic){S.study.history.splice(i,1);break;}} }
   if(a.type==='taskAdd'){ const arr=(S.tasks.byDate[k]||[]); arr.pop(); }
@@ -262,14 +264,113 @@ function viewProtocolo(){ let t=getTodayObj(S.proto.history); if(!t){ t={date:to
   $('#btnProtoClear').onclick=()=>{t.morningDone=[];t.nightDone=[];adjustIntegrity(-4);saveState();render();};
 }
 
-function calcTargetsAuto(){ const w=S.targets.weightKg,bf=S.targets.bfPct,goal=S.targets.goal,activity=S.targets.activity; const lbm=w*(1-bf/100); const bmr=370+21.6*lbm; const act=activity==='baixa'?1.35:activity==='moderada'?1.55:1.75; let kcal=bmr*act; if(goal==='cutting') kcal-=450; if(goal==='bulk') kcal+=250; const p=Math.round((goal==='bulk'?2.2:goal==='cutting'?2.1:1.8)*w), g=Math.round(.8*w), c=Math.max(0,Math.round((kcal-(p*4+g*9))/4)); return {kcal:Math.round(kcal),p,c,g}; }
-function ensureDietToday(){ let d=getTodayObj(S.diet.history); if(!d){ d={date:todayKey(), selections:{cafe:null,almoco:null,lanche:null,jantar:null}, mult:{cafe:1,almoco:1,lanche:1,jantar:1}, locked:{cafe:false,almoco:false,lanche:false,jantar:false}}; S.diet.history.push(d); saveState(); } return d; }
-function sumDiet(d){ let kcal=0,p=0,c=0,g=0; for(const key of ['cafe','almoco','lanche','jantar']){ const i=d.selections[key]; if(i==null) continue; const m=MEALS[key][i], mult=d.mult[key]||1; kcal+=m.kcal*mult;p+=m.p*mult;c+=m.c*mult;g+=m.g*mult; } return {kcal:Math.round(kcal),p:Math.round(p),c:Math.round(c),g:Math.round(g)}; }
-function mealCard(meal,idx,current,mult){ const sel=idx===current, kcal=Math.round(meal.kcal*mult), p=Math.round(meal.p*mult), c=Math.round(meal.c*mult), g=Math.round(meal.g*mult); return `<div class='item'><div><div class='name'>${meal.name}</div><div class='meta'>${kcal}kcal • P${p} C${c} G${g}</div></div><button class='btn ${sel?'primary':'ghost'}' data-mealidx='${idx}'>${sel?'ESCOLHIDO':'ESCOLHER'}</button></div>`; }
-function dietSection(title,key,d){ const sel=d.selections[key],mult=d.mult[key],locked=d.locked[key]; return `<div class='card' data-meal='${key}'><div class='kpi'><div><div class='big'>${title}</div><div class='small'>${sel==null?'Nenhuma opção':MEALS[key][sel].name}</div></div><span class='badge'>${mult}x ${locked?'•TRAVADO':''}</span></div><div class='row'><button class='btn' data-dec='${key}'>- porção</button><button class='btn' data-inc='${key}'>+ porção</button><button class='btn ${locked?'danger':'ghost'}' data-lock='${key}'>${locked?'DESTRAVAR':'TRAVAR'}</button></div><div class='list'>${MEALS[key].map((m,i)=>mealCard(m,i,sel,mult)).join('')}</div></div>`; }
-function viewDieta(){ Object.assign(S.targets, calcTargetsAuto()); saveState(); const d=ensureDietToday(); const t=sumDiet(d); const pct=Math.round(t.kcal/(S.targets.kcal||1)*100); view.innerHTML=`<div class='card'><h2>Dieta inteligente</h2><div class='small'>Meta ${S.targets.kcal}kcal • P${S.targets.p} C${S.targets.c} G${S.targets.g}</div><div class='progress'><div style='width:${Math.max(0,Math.min(100,pct))}%'></div></div><div class='hint'>Aderência: ${Math.round((Math.max(0,100-Math.abs(100-pct))*0.55 + Math.min(100,Math.round(t.p/(S.targets.p||1)*100))*0.45))}%</div></div>${dietSection('Café','cafe',d)}${dietSection('Almoço','almoco',d)}${dietSection('Lanche','lanche',d)}${dietSection('Jantar','jantar',d)}<div class='card'><div class='row'><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
-  ['cafe','almoco','lanche','jantar'].forEach(key=>{ view.querySelectorAll(`[data-meal='${key}'] button[data-mealidx]`).forEach(btn=>btn.onclick=()=>{ if(d.locked[key]) return showToast('Travado'); const idx=Number(btn.dataset.mealidx), prev=d.selections[key]; d.selections[key]=idx; setLastAction({type:'dietSelect',meal:key,prev,next:idx}); addXP(18,'diet'); adjustIntegrity(+1); saveState(); render();}); const dec=view.querySelector(`[data-dec='${key}']`), inc=view.querySelector(`[data-inc='${key}']`), lock=view.querySelector(`[data-lock='${key}']`); dec.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.max(.5,Math.round((d.mult[key]-0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; inc.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.min(2,Math.round((d.mult[key]+0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; lock.onclick=()=>{d.locked[key]=!d.locked[key]; saveState(); render();}; });
-  $('#btnDietUndo').onclick=undoLastAction; $('#btnDietReset').onclick=()=>{ d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
+const DIET_FAVORITES = [
+  {name:'Arroz + feijão + carne', kcal:720,p:42,c:78,g:22},
+  {name:'Frango + arroz', kcal:580,p:42,c:70,g:10},
+  {name:'Ovo + pão', kcal:430,p:22,c:40,g:20},
+  {name:'Banana', kcal:105,p:1,c:27,g:0},
+  {name:'Café', kcal:25,p:0,c:4,g:1},
+  {name:'Shake proteína', kcal:260,p:24,c:28,g:3},
+  {name:'Almoço caseiro', kcal:690,p:38,c:80,g:18},
+  {name:'Janta padrão', kcal:560,p:40,c:54,g:16}
+];
+const SIZE_PRESETS = {pequena:{kcal:320,p:18,c:28,g:12},normal:{kcal:560,p:34,c:52,g:18},grande:{kcal:820,p:42,c:78,g:28},exagerei:{kcal:1200,p:34,c:130,g:46}};
+const OFF_PLAN_PRESETS = {doce:{kcal:380,p:4,c:58,g:16},fast_food:{kcal:980,p:28,c:88,g:52},ansiedade:{kcal:540,p:10,c:65,g:24},belisquei:{kcal:240,p:6,c:26,g:12},ataque_alimentar:{kcal:1450,p:34,c:170,g:60}};
+const TRIGGER_OPTIONS = ['fome','ansiedade','tedio','estresse','social'];
+
+function calcTargetsAuto(){
+  const w=S.targets.weightKg,bf=S.targets.bfPct;
+  const d=ensureDietToday();
+  const recent=(S.diet.history||[]).slice(-14).flatMap(x=>x.weights||[]).map(x=>x.kg).filter(Boolean);
+  const trend=recent.length>=2 ? recent[recent.length-1]-recent[0] : 0;
+  const weekTrain=S.training.history.filter(x=>{ const dt=new Date(x.date||todayKey()); return (Date.now()-dt.getTime())<=7*86400000; }).length;
+  const lbm=w*(1-bf/100); const bmr=370+21.6*lbm;
+  const activityMult=weekTrain>=12?1.72:weekTrain>=6?1.58:1.45;
+  let kcal=bmr*activityMult-430;
+  if(trend<-0.9) kcal+=180;
+  if(trend>0.5) kcal-=120;
+  const p=Math.round(Math.max(150,2.1*w)); const g=Math.round(.75*w); const c=Math.max(60,Math.round((kcal-(p*4+g*9))/4));
+  d.autoTargets={kcal:Math.round(kcal),p,c,g,deficit:Math.round((bmr*activityMult)-kcal),trendKg:Math.round(trend*10)/10};
+  return d.autoTargets;
+}
+function ensureDietToday(){
+  let d=getTodayObj(S.diet.history);
+  if(!d){ d={date:todayKey(), entries:[], triggerMap:{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}, favoritesStats:{}, weights:[], autoTargets:null, selections:{cafe:null,almoco:null,lanche:null,jantar:null}, mult:{cafe:1,almoco:1,lanche:1,jantar:1}, locked:{cafe:false,almoco:false,lanche:false,jantar:false}}; S.diet.history.push(d); }
+  d.entries=d.entries||[]; d.triggerMap=d.triggerMap||{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.favoritesStats=d.favoritesStats||{}; d.weights=d.weights||[];
+  return d;
+}
+function sumDiet(d){
+  let kcal=0,p=0,c=0,g=0;
+  (d.entries||[]).forEach(e=>{kcal+=e.kcal||0;p+=e.p||0;c+=e.c||0;g+=e.g||0;});
+  for(const key of ['cafe','almoco','lanche','jantar']){ const i=d.selections?.[key]; if(i==null) continue; const m=MEALS[key][i], mult=d.mult[key]||1; kcal+=m.kcal*mult;p+=m.p*mult;c+=m.c*mult;g+=m.g*mult; }
+  return {kcal:Math.round(kcal),p:Math.round(p),c:Math.round(c),g:Math.round(g)};
+}
+function dietStatus(t,targets){ if(t.kcal<=targets.kcal*1.02 && t.p>=targets.p) return '✅ Controle total'; if(t.kcal<=targets.kcal*1.18) return '⚠ Atenção'; return '❌ Fora do plano'; }
+function registerDietEntry(d,entry){
+  d.entries.push({...entry,at:new Date().toISOString()});
+  setLastAction({type:'dietQuickAdd'});
+  addXP(12,'diet');
+  adjustIntegrity(entry.mode==='realidade'?-1:+1);
+}
+function riskAlert(d,t,targets){
+  const late=(d.entries||[]).filter(x=>new Date(x.at).getHours()>=20).length;
+  if(late>=2) return 'Risco alto hoje à noite.';
+  if(t.p<targets.p*0.6) return 'Proteína baixa. Priorize fonte proteica na próxima refeição.';
+  if(t.kcal<targets.kcal*0.55 && (new Date().getHours()>=16)) return 'Déficit agressivo hoje. Ajuste para evitar compulsão.';
+  return 'Ritmo estável hoje.';
+}
+function weeklyDietReport(){
+  const days=(S.diet.history||[]).slice(-7); if(!days.length) return null;
+  const valid=days.filter(d=>(d.entries||[]).length>0);
+  const adherence=Math.round((valid.length/7)*100);
+  const kcalAvg=Math.round(valid.reduce((a,b)=>a+sumDiet(b).kcal,0)/Math.max(1,valid.length));
+  const t=ensureDietToday().autoTargets||calcTargetsAuto();
+  const estLoss=((t.kcal-kcalAvg)*30/7700);
+  const triggerCounts=valid.reduce((acc,d)=>{ for(const k of TRIGGER_OPTIONS) acc[k]=(acc[k]||0)+(d.triggerMap?.[k]||0); return acc; },{});
+  const critical=Object.entries(triggerCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'noite';
+  return {adherence,kcalAvg,critical,proj30:Math.round(estLoss*10)/10};
+}
+function favoriteList(d){ return DIET_FAVORITES.map(f=>({f,count:d.favoritesStats[f.name]||0})).sort((a,b)=>b.count-a.count).map(x=>x.f); }
+function renderDietMode(d,mode){
+  if(mode==='favoritos') return `<div class='list'>${favoriteList(d).map((f,i)=>`<button class='btn wide ${i<2?'primary':''}' data-fav='${f.name}'>${f.name}<span class='small'> • ${f.kcal} kcal</span></button>`).join('')}</div>`;
+  if(mode==='tamanho') return `<div class='row'>${Object.keys(SIZE_PRESETS).map(k=>`<button class='btn' data-size='${k}'>${k.toUpperCase()}</button>`).join('')}</div>`;
+  if(mode==='realidade') return `<div class='list'><button class='btn danger wide' data-real='doce'>Doce</button><button class='btn danger wide' data-real='fast_food'>Fast food</button><button class='btn danger wide' data-real='ansiedade'>Ansiedade</button><button class='btn danger wide' data-real='belisquei'>Belisquei</button><button class='btn danger wide' data-real='ataque_alimentar'>Ataque alimentar</button></div>`;
+  return `<div class='row'><input id='dietVoiceInput' placeholder='Ex: Comi arroz, feijão e frango' /><button class='btn primary' id='btnVoiceParse'>Registrar voz</button></div>`;
+}
+function applyTrigger(d,key){ if(!TRIGGER_OPTIONS.includes(key)) return; d.triggerMap[key]=(d.triggerMap[key]||0)+1; }
+function quickTriggerButtons(){ return `<div class='row'>${TRIGGER_OPTIONS.map(t=>`<button class='btn' data-trigger='${t}'>${t}</button>`).join('')}</div>`; }
+function parseVoice(text){ const s=(text||'').toLowerCase(); if(!s.trim()) return null; if(s.includes('shake')) return DIET_FAVORITES.find(x=>x.name==='Shake proteína'); if(s.includes('banana')) return DIET_FAVORITES.find(x=>x.name==='Banana'); if(s.includes('café')) return DIET_FAVORITES.find(x=>x.name==='Café'); if(s.includes('frango')&&s.includes('arroz')) return DIET_FAVORITES.find(x=>x.name==='Frango + arroz'); if(s.includes('feijão')&&s.includes('carne')) return DIET_FAVORITES.find(x=>x.name==='Arroz + feijão + carne'); return {name:text,kcal:520,p:28,c:55,g:18}; }
+function viewDieta(){
+  const d=ensureDietToday();
+  const targets=calcTargetsAuto(); Object.assign(S.targets, targets); saveState();
+  const t=sumDiet(d); const kcalPct=Math.max(0,Math.min(100,Math.round(t.kcal/(targets.kcal||1)*100)));
+  const status=dietStatus(t,targets); const rep=weeklyDietReport();
+  const rest=Math.max(0,targets.kcal-t.kcal);
+  const score=(t.kcal<=targets.kcal?10:0)+(t.p>=targets.p?10:0)+((d.entries||[]).every(x=>x.mode!=='realidade')?15:0)+((d.entries||[]).length>=3?5:0);
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>Dieta Flaviano</h2><div class='small'>Registro em 1 toque. Sem cálculo manual.</div></div><button class='btn primary' id='btnEat'>+ COMER</button></div></div>
+  <div class='card'><div class='kpi'><div><div class='name'>Calorias hoje</div><div class='big'>${t.kcal}</div></div><div><div class='name'>Restantes</div><div class='big'>${rest}</div></div></div><div class='kpi'><div class='small'>Proteína ${t.p}g / ${targets.p}g</div><div class='badge'>${status}</div></div><div class='progress'><div style='width:${kcalPct}%'></div></div><div class='hint'>PROGRESSO CALÓRICO DO DIA</div></div>
+  <div class='card'><h2>Controle de compulsão</h2><div class='small'>O que motivou?</div>${quickTriggerButtons()}</div>
+  <div class='card'><h2>Peso corporal</h2><div class='row'><button class='btn' id='btnWeight'>Registrar peso</button><div class='small'>Média 7 dias: <b>${Math.round(((d.weights||[]).slice(-7).reduce((a,b)=>a+b.kg,0)/Math.max(1,(d.weights||[]).slice(-7).length))*10)/10||S.targets.weightKg}kg</b> • Tendência: <b>${targets.trendKg||0}kg</b></div></div></div>
+  <div class='card'><h2>Inteligência automática</h2><div class='hint'>${riskAlert(d,t,targets)}</div><div class='small'>Déficit alvo ${targets.deficit} kcal • Ajuste semanal automático ativo</div></div>
+  <div class='card'><h2>Score Dieta (Ascensão)</h2><div class='small'>XP de hoje: <b>${score}</b> • Integridade/Streak/Combo integrados</div></div>
+  <div class='card'><h2>Relatório semanal automático</h2><div class='small'>Aderência ${rep?.adherence||0}% • Média calórica ${rep?.kcalAvg||0} kcal • Horário crítico: ${rep?.critical||'—'}.</div><div class='hint'>Mantendo esse ritmo: ${rep?.proj30!=null?`${rep.proj30>0?'+':''}${rep.proj30}kg`:'0kg'} em 30 dias.</div></div>
+  <div class='card'><div class='row'><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
+
+  $('#btnEat').onclick=()=>{ openModal('Registrar comida','menos de 3 segundos',`<div class='row'><button class='btn primary' data-mode='favoritos'>Favoritos</button><button class='btn' data-mode='tamanho'>Tamanho</button><button class='btn danger' data-mode='realidade'>Saí da dieta</button><button class='btn' data-mode='voz'>Voz</button></div><div id='dietModePanel'>${renderDietMode(d,'favoritos')}</div>`);
+    modalBody.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ modalBody.querySelector('#dietModePanel').innerHTML=renderDietMode(d,b.dataset.mode); bindDietModeActions(d,b.dataset.mode); });
+    bindDietModeActions(d,'favoritos');
+  };
+  function bindDietModeActions(day,mode){
+    modalBody.querySelectorAll('[data-fav]').forEach(btn=>btn.onclick=()=>{ const fav=DIET_FAVORITES.find(x=>x.name===btn.dataset.fav); day.favoritesStats[fav.name]=(day.favoritesStats[fav.name]||0)+1; registerDietEntry(day,{...fav,mode:'favoritos'}); saveState(); closeModal(); render(); });
+    modalBody.querySelectorAll('[data-size]').forEach(btn=>btn.onclick=()=>{ const p=SIZE_PRESETS[btn.dataset.size]; registerDietEntry(day,{name:`Refeição ${btn.dataset.size}`,...p,mode:'tamanho'}); saveState(); closeModal(); render(); });
+    modalBody.querySelectorAll('[data-real]').forEach(btn=>btn.onclick=()=>{ const p=OFF_PLAN_PRESETS[btn.dataset.real]; registerDietEntry(day,{name:`Saí da dieta: ${btn.textContent}`,...p,mode:'realidade'}); saveState(); closeModal(); render(); });
+    const parseBtn=modalBody.querySelector('#btnVoiceParse'); if(parseBtn) parseBtn.onclick=()=>{ const parsed=parseVoice(modalBody.querySelector('#dietVoiceInput').value||''); if(!parsed) return showToast('Fale o que comeu'); registerDietEntry(day,{...parsed,mode:'voz'}); saveState(); closeModal(); render(); };
+  }
+  view.querySelectorAll('[data-trigger]').forEach(btn=>btn.onclick=()=>{ applyTrigger(d,btn.dataset.trigger); saveState(); showToast('Gatilho registrado'); render(); });
+  $('#btnWeight').onclick=()=>{ const raw=prompt('Peso atual (kg):', String(S.targets.weightKg||90)); const kg=Number(raw); if(!kg||kg<30||kg>300) return showToast('Peso inválido'); d.weights.push({kg,at:new Date().toISOString()}); S.targets.weightKg=kg; setLastAction({type:'dietWeight'}); saveState(); render(); };
+  $('#btnDietUndo').onclick=undoLastAction;
+  $('#btnDietReset').onclick=()=>{ d.entries=[]; d.triggerMap={fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
 }
 
 function getProgramAndDay(){
