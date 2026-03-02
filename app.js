@@ -112,7 +112,7 @@ const TRAINING_PROGRAMS = {
 
 
 const TAB_DEFS = [
-  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},
+  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'TESTO',label:'Testosterona'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
@@ -137,7 +137,7 @@ function defaultState(){
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
     training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
-    diet:{history:[]},
+    diet:{history:[]}, hormonal:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
     social:{history:[]}, ops:{history:[]}, finance:{history:[]},
@@ -159,7 +159,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -223,13 +223,15 @@ function adjustIntegrity(d){ S.rpg.integrity=Math.max(0,Math.min(100,S.rpg.integ
 
 function getTodayObj(arr){ return arr.find(x=>x.date===todayKey()); }
 function upsertToday(arr,obj){ const i=arr.findIndex(x=>x.date===todayKey()); if(i>=0) arr[i]=obj; else arr.push(obj); }
-function todayProgress(){ const k=todayKey(); const proto=(S.proto.history.find(x=>x.date===k)?.morningDone?.length||0)>=3; const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0)>=25; const diet=!!(S.diet.history.find(x=>x.date===k)?.selections?.cafe); const train=S.training.history.filter(x=>x.date===k).length>=3; const bible=(S.bibleLog?.[k]===true); const done=[proto,study,diet,train,bible].filter(Boolean).length; return {proto,study,diet,train,bible,done,total:5,pct:Math.round(done/5*100)}; }
+function todayProgress(){ const k=todayKey(); const proto=(S.proto.history.find(x=>x.date===k)?.morningDone?.length||0)>=3; const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0)>=25; const dietObj=S.diet.history.find(x=>x.date===k); const diet=!!(dietObj?.entries?.length || dietObj?.selections?.cafe!=null); const train=S.training.history.filter(x=>x.date===k).length>=3; const bible=(S.bibleLog?.[k]===true); const done=[proto,study,diet,train,bible].filter(Boolean).length; return {proto,study,diet,train,bible,done,total:5,pct:Math.round(done/5*100)}; }
 
 function setLastAction(a){ S.lastAction=a; saveState(); }
 function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada pra desfazer'); const k=todayKey(); try{
   if(a.type==='proto'){ const t=getTodayObj(S.proto.history); if(t){ const arr=a.tag==='morning'?t.morningDone:t.nightDone; if(a.undo==='remove'){ const i=arr.indexOf(a.idx); if(i>=0) arr.splice(i,1);} else if(!arr.includes(a.idx)) arr.push(a.idx); }}
   if(a.type==='dietSelect'){ const d=ensureDietToday(); d.selections[a.meal]=a.prev; }
   if(a.type==='dietMult'){ const d=ensureDietToday(); d.mult[a.meal]=a.prev; }
+  if(a.type==='dietQuickAdd'){ const d=ensureDietToday(); d.entries.pop(); }
+  if(a.type==='dietWeight'){ const d=ensureDietToday(); d.weights.pop(); }
   if(a.type==='trainSet'){ const i=S.training.history.lastIndexOf(a.entry); if(i>=0) S.training.history.splice(i,1); }
   if(a.type==='studyAdd'){ for(let i=S.study.history.length-1;i>=0;i--){const x=S.study.history[i]; if(x.date===a.date&&x.minutes===a.minutes&&x.topic===a.topic){S.study.history.splice(i,1);break;}} }
   if(a.type==='taskAdd'){ const arr=(S.tasks.byDate[k]||[]); arr.pop(); }
@@ -262,14 +264,297 @@ function viewProtocolo(){ let t=getTodayObj(S.proto.history); if(!t){ t={date:to
   $('#btnProtoClear').onclick=()=>{t.morningDone=[];t.nightDone=[];adjustIntegrity(-4);saveState();render();};
 }
 
-function calcTargetsAuto(){ const w=S.targets.weightKg,bf=S.targets.bfPct,goal=S.targets.goal,activity=S.targets.activity; const lbm=w*(1-bf/100); const bmr=370+21.6*lbm; const act=activity==='baixa'?1.35:activity==='moderada'?1.55:1.75; let kcal=bmr*act; if(goal==='cutting') kcal-=450; if(goal==='bulk') kcal+=250; const p=Math.round((goal==='bulk'?2.2:goal==='cutting'?2.1:1.8)*w), g=Math.round(.8*w), c=Math.max(0,Math.round((kcal-(p*4+g*9))/4)); return {kcal:Math.round(kcal),p,c,g}; }
-function ensureDietToday(){ let d=getTodayObj(S.diet.history); if(!d){ d={date:todayKey(), selections:{cafe:null,almoco:null,lanche:null,jantar:null}, mult:{cafe:1,almoco:1,lanche:1,jantar:1}, locked:{cafe:false,almoco:false,lanche:false,jantar:false}}; S.diet.history.push(d); saveState(); } return d; }
-function sumDiet(d){ let kcal=0,p=0,c=0,g=0; for(const key of ['cafe','almoco','lanche','jantar']){ const i=d.selections[key]; if(i==null) continue; const m=MEALS[key][i], mult=d.mult[key]||1; kcal+=m.kcal*mult;p+=m.p*mult;c+=m.c*mult;g+=m.g*mult; } return {kcal:Math.round(kcal),p:Math.round(p),c:Math.round(c),g:Math.round(g)}; }
-function mealCard(meal,idx,current,mult){ const sel=idx===current, kcal=Math.round(meal.kcal*mult), p=Math.round(meal.p*mult), c=Math.round(meal.c*mult), g=Math.round(meal.g*mult); return `<div class='item'><div><div class='name'>${meal.name}</div><div class='meta'>${kcal}kcal • P${p} C${c} G${g}</div></div><button class='btn ${sel?'primary':'ghost'}' data-mealidx='${idx}'>${sel?'ESCOLHIDO':'ESCOLHER'}</button></div>`; }
-function dietSection(title,key,d){ const sel=d.selections[key],mult=d.mult[key],locked=d.locked[key]; return `<div class='card' data-meal='${key}'><div class='kpi'><div><div class='big'>${title}</div><div class='small'>${sel==null?'Nenhuma opção':MEALS[key][sel].name}</div></div><span class='badge'>${mult}x ${locked?'•TRAVADO':''}</span></div><div class='row'><button class='btn' data-dec='${key}'>- porção</button><button class='btn' data-inc='${key}'>+ porção</button><button class='btn ${locked?'danger':'ghost'}' data-lock='${key}'>${locked?'DESTRAVAR':'TRAVAR'}</button></div><div class='list'>${MEALS[key].map((m,i)=>mealCard(m,i,sel,mult)).join('')}</div></div>`; }
-function viewDieta(){ Object.assign(S.targets, calcTargetsAuto()); saveState(); const d=ensureDietToday(); const t=sumDiet(d); const pct=Math.round(t.kcal/(S.targets.kcal||1)*100); view.innerHTML=`<div class='card'><h2>Dieta inteligente</h2><div class='small'>Meta ${S.targets.kcal}kcal • P${S.targets.p} C${S.targets.c} G${S.targets.g}</div><div class='progress'><div style='width:${Math.max(0,Math.min(100,pct))}%'></div></div><div class='hint'>Aderência: ${Math.round((Math.max(0,100-Math.abs(100-pct))*0.55 + Math.min(100,Math.round(t.p/(S.targets.p||1)*100))*0.45))}%</div></div>${dietSection('Café','cafe',d)}${dietSection('Almoço','almoco',d)}${dietSection('Lanche','lanche',d)}${dietSection('Jantar','jantar',d)}<div class='card'><div class='row'><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
-  ['cafe','almoco','lanche','jantar'].forEach(key=>{ view.querySelectorAll(`[data-meal='${key}'] button[data-mealidx]`).forEach(btn=>btn.onclick=()=>{ if(d.locked[key]) return showToast('Travado'); const idx=Number(btn.dataset.mealidx), prev=d.selections[key]; d.selections[key]=idx; setLastAction({type:'dietSelect',meal:key,prev,next:idx}); addXP(18,'diet'); adjustIntegrity(+1); saveState(); render();}); const dec=view.querySelector(`[data-dec='${key}']`), inc=view.querySelector(`[data-inc='${key}']`), lock=view.querySelector(`[data-lock='${key}']`); dec.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.max(.5,Math.round((d.mult[key]-0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; inc.onclick=()=>{if(d.locked[key])return; const prev=d.mult[key]; d.mult[key]=Math.min(2,Math.round((d.mult[key]+0.25)*100)/100); setLastAction({type:'dietMult',meal:key,prev,next:d.mult[key]}); saveState(); render();}; lock.onclick=()=>{d.locked[key]=!d.locked[key]; saveState(); render();}; });
-  $('#btnDietUndo').onclick=undoLastAction; $('#btnDietReset').onclick=()=>{ d.selections={cafe:null,almoco:null,lanche:null,jantar:null}; d.mult={cafe:1,almoco:1,lanche:1,jantar:1}; d.locked={cafe:false,almoco:false,lanche:false,jantar:false}; adjustIntegrity(-4); saveState(); render(); };
+const FOOD_DB = [
+  {name:'Arroz cozido', grams:100, kcal:130,p:2.5,c:28,g:0.3,fiber:0.4,sodium:1,chol:0,micros:{vitA:0,vitB1:0.02,vitB2:0.01,vitB3:0.4,vitB5:0.4,vitB6:0.1,vitB9:3,vitB12:0,vitC:0,vitD:0,vitE:0.1,vitK:0.1,calcio:10,ferro:0.2,magnesio:12,zinco:0.5,potassio:35,selenio:7,fosforo:43,iodo:2}},
+  {name:'Feijão carioca cozido', grams:100, kcal:77,p:4.8,c:14,g:0.5,fiber:8.5,sodium:1,chol:0,micros:{vitA:0,vitB1:0.1,vitB2:0.03,vitB3:0.3,vitB5:0.2,vitB6:0.1,vitB9:150,vitB12:0,vitC:0,vitD:0,vitE:0.1,vitK:2,calcio:27,ferro:1.3,magnesio:42,zinco:0.8,potassio:255,selenio:1,fosforo:87,iodo:1}},
+  {name:'Peito de frango grelhado', grams:100, kcal:165,p:31,c:0,g:3.6,fiber:0,sodium:74,chol:85,micros:{vitA:13,vitB1:0.07,vitB2:0.1,vitB3:14,vitB5:1.1,vitB6:0.6,vitB9:4,vitB12:0.3,vitC:0,vitD:0,vitE:0.3,vitK:0.3,calcio:15,ferro:1,magnesio:29,zinco:1,potassio:256,selenio:24,fosforo:220,iodo:6}},
+  {name:'Carne bovina magra', grams:100, kcal:217,p:26,c:0,g:12,fiber:0,sodium:72,chol:90,micros:{vitA:0,vitB1:0.06,vitB2:0.15,vitB3:5.8,vitB5:0.5,vitB6:0.4,vitB9:6,vitB12:2.2,vitC:0,vitD:0.1,vitE:0.2,vitK:1.5,calcio:18,ferro:2.6,magnesio:22,zinco:4.8,potassio:318,selenio:18,fosforo:200,iodo:7}},
+  {name:'Aveia', grams:100, kcal:389,p:17,c:66,g:7,fiber:10.6,sodium:2,chol:0,micros:{vitA:0,vitB1:0.76,vitB2:0.14,vitB3:0.96,vitB5:1.3,vitB6:0.12,vitB9:56,vitB12:0,vitC:0,vitD:0,vitE:0.4,vitK:2,calcio:54,ferro:4.7,magnesio:177,zinco:4,potassio:429,selenio:28,fosforo:523,iodo:6}},
+  {name:'Banana', grams:100, kcal:89,p:1.1,c:23,g:0.3,fiber:2.6,sodium:1,chol:0,micros:{vitA:3,vitB1:0.03,vitB2:0.07,vitB3:0.7,vitB5:0.3,vitB6:0.37,vitB9:20,vitB12:0,vitC:8.7,vitD:0,vitE:0.1,vitK:0.5,calcio:5,ferro:0.3,magnesio:27,zinco:0.2,potassio:358,selenio:1,fosforo:22,iodo:2}},
+  {name:'Ovo inteiro', grams:100, kcal:143,p:13,c:1.1,g:9.5,fiber:0,sodium:142,chol:373,micros:{vitA:160,vitB1:0.04,vitB2:0.5,vitB3:0.1,vitB5:1.4,vitB6:0.17,vitB9:47,vitB12:1.1,vitC:0,vitD:2,vitE:1.1,vitK:0.3,calcio:56,ferro:1.8,magnesio:12,zinco:1.3,potassio:138,selenio:30,fosforo:198,iodo:24}},
+  {name:'Batata doce', grams:100, kcal:86,p:1.6,c:20,g:0.1,fiber:3,sodium:55,chol:0,micros:{vitA:709,vitB1:0.08,vitB2:0.06,vitB3:0.6,vitB5:0.8,vitB6:0.2,vitB9:11,vitB12:0,vitC:2.4,vitD:0,vitE:0.3,vitK:1.8,calcio:30,ferro:0.6,magnesio:25,zinco:0.3,potassio:337,selenio:0.6,fosforo:47,iodo:1}},
+  {name:'Iogurte natural', grams:100, kcal:61,p:3.5,c:4.7,g:3.3,fiber:0,sodium:46,chol:13,micros:{vitA:27,vitB1:0.04,vitB2:0.14,vitB3:0.1,vitB5:0.4,vitB6:0.04,vitB9:7,vitB12:0.4,vitC:0.6,vitD:0.1,vitE:0.1,vitK:0.2,calcio:121,ferro:0.1,magnesio:12,zinco:0.6,potassio:155,selenio:3,fosforo:95,iodo:37}},
+  {name:'Salmão', grams:100, kcal:208,p:20,c:0,g:13,fiber:0,sodium:59,chol:55,micros:{vitA:40,vitB1:0.2,vitB2:0.4,vitB3:8.6,vitB5:1.6,vitB6:0.9,vitB9:25,vitB12:3.2,vitC:3.9,vitD:10,vitE:1.1,vitK:0.1,calcio:9,ferro:0.3,magnesio:29,zinco:0.6,potassio:363,selenio:36,fosforo:252,iodo:30}},
+  {name:'Castanhas', grams:100, kcal:607,p:20,c:21,g:54,fiber:8,sodium:12,chol:0,micros:{vitA:1,vitB1:0.42,vitB2:0.06,vitB3:1.1,vitB5:0.5,vitB6:0.3,vitB9:22,vitB12:0,vitC:0.5,vitD:0,vitE:5.7,vitK:34,calcio:114,ferro:2.8,magnesio:260,zinco:3,potassio:565,selenio:9,fosforo:484,iodo:4}},
+  {name:'Whey protein', grams:30, kcal:120,p:24,c:3,g:1.5,fiber:0.4,sodium:70,chol:10,micros:{vitA:0,vitB1:0.04,vitB2:0.09,vitB3:0.3,vitB5:0.2,vitB6:0.1,vitB9:8,vitB12:0.2,vitC:0,vitD:0,vitE:0.1,vitK:0,calcio:120,ferro:0.3,magnesio:20,zinco:0.5,potassio:160,selenio:4,fosforo:100,iodo:3}}
+];
+const MICRO_TARGETS = {vitA:900,vitB1:1.2,vitB2:1.3,vitB3:16,vitB5:5,vitB6:1.7,vitB9:400,vitB12:2.4,vitC:90,vitD:15,vitE:15,vitK:120,calcio:1000,ferro:8,magnesio:420,zinco:11,potassio:3400,selenio:55,fosforo:700,iodo:150};
+const PHYSIO_MODES = {
+  cutting:{label:'Cutting',rate:[-0.8,-0.5],energy:-380,proteinKg:2.2,fatKg:0.7,carbTiming:'Carbo alto pré/pós treino'},
+  aggressive:{label:'Cutting agressivo',rate:[-1.2,-1],energy:-620,proteinKg:2.4,fatKg:0.65,carbTiming:'Carbo focado apenas janela de treino'},
+  maintenance:{label:'Manutenção',rate:[-0.1,0.1],energy:0,proteinKg:2.0,fatKg:0.8,carbTiming:'Carbo distribuído uniforme'},
+  lean_bulk:{label:'Lean Bulk',rate:[0.25,0.5],energy:240,proteinKg:1.9,fatKg:0.8,carbTiming:'Carbo progressivo no pré e intra'}
+};
+const DIET_FAVORITES = [
+  {name:'Arroz + feijão + carne', grams:450, foods:[['Arroz cozido',180],['Feijão carioca cozido',120],['Carne bovina magra',150]]},
+  {name:'Frango + arroz', grams:350, foods:[['Arroz cozido',170],['Peito de frango grelhado',180]]},
+  {name:'Ovo + pão', grams:220, foods:[['Ovo inteiro',120],['Aveia',40],['Banana',60]]},
+  {name:'Banana', grams:100, foods:[['Banana',100]]},
+  {name:'Café', grams:30, foods:[['Iogurte natural',100]]},
+  {name:'Shake proteína', grams:30, foods:[['Whey protein',30]]},
+  {name:'Almoço caseiro', grams:500, foods:[['Arroz cozido',200],['Feijão carioca cozido',120],['Peito de frango grelhado',180]]},
+  {name:'Janta padrão', grams:420, foods:[['Batata doce',200],['Peito de frango grelhado',180],['Castanhas',40]]}
+];
+const SIZE_PRESETS = {pequena:0.75,medio:1,grande:1.3};
+const TRIGGER_OPTIONS = ['fome','ansiedade','tedio','estresse','social'];
+
+function foodByName(name){ return FOOD_DB.find(x=>x.name===name); }
+function microsZero(){ const m={}; Object.keys(MICRO_TARGETS).forEach(k=>m[k]=0); return m; }
+function sumMicros(base,add,factor=1){ Object.keys(base).forEach(k=>base[k]+=((add[k]||0)*factor)); }
+function mealFromFoods(label, foods){
+  const r={name:label,grams:0,kcal:0,p:0,c:0,g:0,fiber:0,sodium:0,chol:0,micros:microsZero()};
+  foods.forEach(([fname,grams])=>{ const f=foodByName(fname); if(!f) return; const mult=grams/f.grams; r.grams+=grams; r.kcal+=f.kcal*mult; r.p+=f.p*mult; r.c+=f.c*mult; r.g+=f.g*mult; r.fiber+=f.fiber*mult; r.sodium+=f.sodium*mult; r.chol+=(f.chol||0)*mult; sumMicros(r.micros,f.micros,mult); });
+  return r;
+}
+function ensureDietToday(){
+  let d=getTodayObj(S.diet.history);
+  if(!d){ d={date:todayKey(), mode:'cutting', entries:[], triggerMap:{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}, favoritesStats:{}, weights:[], routine:{steps:8000,awakeHours:16,activityLevel:'moderada'}, mental:{fatigue:45,compulsion:0}, autoTargets:null, weeklyAdjust:null}; S.diet.history.push(d); }
+  d.entries=d.entries||[]; d.weights=d.weights||[]; d.favoritesStats=d.favoritesStats||{}; d.mode=d.mode||'cutting';
+  d.triggerMap=d.triggerMap||{fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; d.routine=d.routine||{steps:8000,awakeHours:16,activityLevel:'moderada'}; d.mental=d.mental||{fatigue:45,compulsion:0};
+  return d;
+}
+function collectIntegratedSignals(){
+  const d=ensureDietToday(), k=todayKey();
+  const weekTrain=S.training.history.filter(x=>{ const dt=new Date(x.date||k); return (Date.now()-dt.getTime())<=7*86400000; });
+  const volume=weekTrain.length;
+  const daysTrained=new Set(weekTrain.map(x=>x.date)).size;
+  const avgReps=weekTrain.reduce((a,e)=>a+((e.sets||[]).reduce((s,it)=>s+(Number(it.reps)||0),0)),0)/Math.max(1,volume);
+  const intensity=avgReps<=6?0.9:avgReps<=10?0.78:0.65;
+  const cardioMinutes=Math.round(volume*8);
+  const gastoTreino=Math.round(volume*42 + cardioMinutes*7);
+  const shapeWeights=(S.diet.history||[]).slice(-14).flatMap(x=>x.weights||[]).map(x=>x.kg).filter(Boolean);
+  const weightNow=shapeWeights.at(-1)||S.targets.weightKg;
+  const weightAvg7=(shapeWeights.slice(-7).reduce((a,b)=>a+b,0)/Math.max(1,shapeWeights.slice(-7).length))||weightNow;
+  const trendWeek=((shapeWeights.length>=8)?(shapeWeights.at(-1)-shapeWeights.at(-8)):0);
+  const bf=S.targets.bfPct;
+  const shape={weightNow,weightAvg7,bf,trendWeek,measurements:{cintura:92,braco:39,coxa:62}};
+  const rotina={steps:d.routine.steps,awakeHours:d.routine.awakeHours,activity:d.routine.activityLevel};
+  const mental={compulsion:d.mental.compulsion+(d.entries.filter(x=>x.mode==='realidade').length),fatigue:d.mental.fatigue};
+  return {treino:{volume,gastoTreino,daysTrained,intensity,cardioMinutes},shape,rotina,mental};
+}
+function sumDiet(d){
+  const totals={kcal:0,p:0,c:0,g:0,fiber:0,sodium:0,chol:0,micros:microsZero()};
+  (d.entries||[]).forEach(e=>{ totals.kcal+=e.kcal||0; totals.p+=e.p||0; totals.c+=e.c||0; totals.g+=e.g||0; totals.fiber+=e.fiber||0; totals.sodium+=e.sodium||0; totals.chol+=e.chol||0; sumMicros(totals.micros,e.micros||{}); });
+  ['kcal','p','c','g','fiber','sodium','chol'].forEach(k=>totals[k]=Math.round(totals[k]));
+  return totals;
+}
+function dynamicTDEE(signals){
+  const lbm=signals.shape.weightAvg7*(1-signals.shape.bf/100);
+  const bmr=370+21.6*lbm;
+  const neat=signals.rotina.steps*0.035 + Math.max(0,signals.rotina.awakeHours-14)*22;
+  const treino=signals.treino.gastoTreino/7;
+  const adaptPenalty=Math.max(0,Math.abs(signals.shape.trendWeek)*120);
+  return Math.round(bmr+neat+treino-adaptPenalty);
+}
+function calcTargetsAuto(){
+  const d=ensureDietToday(), signals=collectIntegratedSignals(), mode=PHYSIO_MODES[d.mode]||PHYSIO_MODES.cutting;
+  const tdee=dynamicTDEE(signals);
+  let kcal=tdee+mode.energy;
+  const weeklyRate=((signals.shape.trendWeek/signals.shape.weightAvg7)*100);
+  if(weeklyRate>mode.rate[1]) kcal-=120;
+  if(weeklyRate<mode.rate[0]) kcal+=90;
+  if(signals.mental.fatigue>=70) kcal+=60;
+  const p=Math.round(mode.proteinKg*signals.shape.weightAvg7);
+  const g=Math.round(Math.max(45,mode.fatKg*signals.shape.weightAvg7));
+  const c=Math.max(60,Math.round((kcal-(p*4+g*9))/4));
+  const carbHeavy=Math.round(c*0.62), carbRest=Math.round(c*0.38);
+  d.autoTargets={kcal:Math.round(kcal),p,c,g,tdee,rateTarget:mode.rate,mode:mode.label,carbTiming:mode.carbTiming,trainCarb:carbHeavy,restCarb:carbRest,signals};
+  return d.autoTargets;
+}
+function micronutrientStatus(totals){
+  return Object.entries(MICRO_TARGETS).map(([k,v])=>{ const pct=(totals.micros[k]||0)/v*100; const status=pct>=95?'✅ Adequado':pct>=70?'⚠ Baixo':'❌ Deficiente'; return {k,target:v,val:Math.round((totals.micros[k]||0)*10)/10,pct:Math.round(pct),status}; });
+}
+function suggestMicroFix(item){
+  if(item.status==='✅ Adequado') return 'Manter padrão atual.';
+  const map={magnesio:'Magnésio baixo — adicionar aveia ou castanhas.',vitD:'Vitamina D baixa — incluir salmão/sol diário ou suplementação.',ferro:'Ferro baixo — priorizar carne magra e feijão.',potassio:'Potássio baixo — adicionar banana e batata doce.',iodo:'Iodo baixo — usar sal iodado e peixes.'};
+  return map[item.k]||`${item.k} baixo — aumentar alimentos ricos nesse micronutriente.`;
+}
+function favoriteList(d){ return DIET_FAVORITES.map(f=>({f,count:d.favoritesStats[f.name]||0})).sort((a,b)=>b.count-a.count).map(x=>x.f); }
+function registerDietEntry(d,meal,mode='favoritos'){ d.entries.push({...meal,mode,at:new Date().toISOString()}); setLastAction({type:'dietQuickAdd'}); addXP(14,'diet'); adjustIntegrity(mode==='realidade'?-1:+1); }
+function parseVoice(text){
+  const s=(text||'').toLowerCase();
+  if(!s.trim()) return null;
+  if(s.includes('arroz')&&s.includes('feijão')&&s.includes('frango')) return mealFromFoods('Voz: arroz + feijão + frango', [['Arroz cozido',180],['Feijão carioca cozido',120],['Peito de frango grelhado',170]]);
+  if(s.includes('whey')||s.includes('shake')) return mealFromFoods('Voz: shake proteína', [['Whey protein',30],['Banana',100]]);
+  if(s.includes('ovo')) return mealFromFoods('Voz: ovos', [['Ovo inteiro',150]]);
+  return mealFromFoods(`Voz: ${text}`, [['Arroz cozido',150],['Peito de frango grelhado',120]]);
+}
+function visualEstimate(size){ const mult=SIZE_PRESETS[size]||1; return mealFromFoods(`Estimativa ${size}`, [['Arroz cozido',160*mult],['Peito de frango grelhado',130*mult],['Feijão carioca cozido',90*mult]]); }
+function applyTrigger(d,key){ if(!TRIGGER_OPTIONS.includes(key)) return; d.triggerMap[key]=(d.triggerMap[key]||0)+1; if(key==='ansiedade'||key==='estresse') d.mental.compulsion=(d.mental.compulsion||0)+1; }
+function weeklyAutoAdjust(d,targets,totals){
+  const days=(S.diet.history||[]).slice(-7); const adherence=Math.round((days.filter(x=>(x.entries||[]).length>0).length/7)*100);
+  const realTrend=((d.autoTargets?.signals?.shape?.trendWeek||0)/Math.max(1,d.autoTargets?.signals?.shape?.weightAvg7||1))*100;
+  let action='Manter macros'; let kcalDelta=0;
+  if(realTrend>-0.3 && d.mode!=='lean_bulk'){ action='Estagnado: reduzir 120 kcal'; kcalDelta=-120; }
+  if(realTrend<-1.3 && d.mode!=='lean_bulk'){ action='Perda excessiva: subir 90 kcal'; kcalDelta=90; }
+  if(d.autoTargets.signals.mental.fatigue>72){ action+=' + subir carbo treino'; }
+  d.weeklyAdjust={adherence,realTrend:Math.round(realTrend*100)/100,action,kcalDelta,performance:d.autoTargets.signals.treino.intensity};
+  return d.weeklyAdjust;
+}
+function metabolicRisk(d,targets,totals){
+  const risks=[];
+  if(totals.g<targets.g*0.85) risks.push('baixa ingestão gordura');
+  if((d.entries||[]).filter(x=>x.mode==='realidade').length>=2) risks.push('fome crônica/compulsão');
+  if(targets.kcal<targets.tdee*0.72) risks.push('déficit extremo prolongado');
+  if(d.mental.fatigue>=75) risks.push('queda performance');
+  if(risks.length>=2) return {msg:'Risco metabólico alto: ativar refeed automático.',plan:'Refeed: +40% carbs por 1 dia.'};
+  if(risks.length===1) return {msg:`Risco detectado: ${risks[0]}.`,plan:'Sugerir diet break de 4-7 dias se persistir.'};
+  return {msg:'Sem risco metabólico crítico.',plan:'Seguimento padrão do protocolo.'};
+}
+function dietStatus(t,targets){ if(t.kcal<=targets.kcal*1.03 && t.p>=targets.p) return '✅ Controle total'; if(t.kcal<=targets.kcal*1.15) return '⚠ Atenção'; return '❌ Fora do plano'; }
+function microStatusHTML(micro){ return `<div class='list'>${micro.map(m=>`<div class='item'><div><div class='name'>${m.k}</div><div class='meta'>${m.val}/${m.target}</div></div><span class='badge'>${m.status}</span></div>`).join('')}</div>`; }
+
+function viewDieta(){
+  syncMetabolicSystems();
+  const d=ensureDietToday();
+  const targets=calcTargetsAuto();
+  const totals=sumDiet(d);
+  const status=dietStatus(totals,targets);
+  const weekly=weeklyAutoAdjust(d,targets,totals);
+  const micro=micronutrientStatus(totals);
+  const risk=metabolicRisk(d,targets,totals);
+  const rest=Math.max(0,targets.kcal-totals.kcal);
+  const pct=Math.max(0,Math.min(100,Math.round(totals.kcal/Math.max(1,targets.kcal)*100)));
+  const fatRate=(-weekly.realTrend||0);
+  const bfForecast=Math.max(5,Math.round((S.targets.bfPct - (Math.max(0,fatRate)*4))*10)/10);
+  const weeksTo12=Math.max(0,Math.round(((S.targets.bfPct-12)/Math.max(0.1,fatRate))*10)/10);
+  const weeksToStage=Math.max(0,Math.round(((S.targets.bfPct-6)/Math.max(0.1,fatRate))*10)/10);
+  const score=(totals.p>=targets.p?10:0)+(totals.kcal<=targets.kcal?10:0)+(micro.filter(m=>m.status==='✅ Adequado').length>=12?10:0)+(weekly.adherence>=80?10:0);
+
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>DIETA — Motor Metabólico</h2><div class='small'>Objetivo: cutting para competição natural</div></div><button class='btn primary' id='btnEat'>+ COMER</button></div></div>
+  <div class='card'><div class='row'><label>Modo fisiológico<select id='dietMode'>${Object.entries(PHYSIO_MODES).map(([k,v])=>`<option value='${k}' ${d.mode===k?'selected':''}>${v.label}</option>`).join('')}</select></label><div class='small'>${targets.carbTiming}</div></div></div>
+  <div class='card'><div class='kpi'><div><div class='name'>Calorias hoje</div><div class='big'>${totals.kcal}</div></div><div><div class='name'>Restantes</div><div class='big'>${rest}</div></div></div><div class='small'>Proteína ${totals.p}/${targets.p}g • Meta ${Math.round(targets.kcal)} kcal</div><div class='progress'><div style='width:${pct}%'></div></div><div class='kpi'><div class='badge'>${status}</div><div class='badge'>TDEE ${targets.tdee}</div></div></div>
+  <div class='card'><h2>Integração TREINO/SHAPE/ROTINA/MENTAL</h2><div class='small'>Treino: volume ${targets.signals.treino.volume} • dias ${targets.signals.treino.daysTrained} • intensidade ${Math.round(targets.signals.treino.intensity*100)}% • cardio ${targets.signals.treino.cardioMinutes}min</div><div class='small'>Shape: peso ${targets.signals.shape.weightNow}kg • média 7d ${Math.round(targets.signals.shape.weightAvg7*10)/10}kg • BF ${targets.signals.shape.bf}%</div><div class='small'>Rotina: ${targets.signals.rotina.steps} passos • ${targets.signals.rotina.awakeHours}h acordado • atividade ${targets.signals.rotina.activity}</div><div class='small'>Mental: fadiga ${targets.signals.mental.fatigue} • compulsão ${targets.signals.mental.compulsion}</div></div>
+  <div class='card'><h2>Periodização Nutricional</h2><div class='small'>Dia treino pesado: carbo ${targets.trainCarb}g • Dia descanso: carbo ${targets.restCarb}g • proteína constante.</div><div class='small'>Velocidade alvo: ${targets.rateTarget[0]}% a ${targets.rateTarget[1]}% peso/semana</div></div>
+  <div class='card'><h2>Controle de Compulsão</h2><div class='small'>O que motivou?</div><div class='row'>${TRIGGER_OPTIONS.map(t=>`<button class='btn' data-trigger='${t}'>${t}</button>`).join('')}</div></div>
+  <div class='card'><h2>Status Nutricional (Micronutrientes)</h2>${microStatusHTML(micro.slice(0,8))}<div class='hint'>${suggestMicroFix(micro.sort((a,b)=>a.pct-b.pct)[0])}</div></div>
+  <div class='card'><h2>Risco Metabólico</h2><div class='small'>${risk.msg}</div><div class='hint'>${risk.plan}</div></div>
+  <div class='card'><h2>Dashboard Cutting</h2><div class='small'>Taxa real perda: ${fatRate.toFixed(2)}%/semana • Previsão BF: ${bfForecast}% • Semanas até 12%: ${weeksTo12} • Semanas até palco: ${weeksToStage}</div></div>
+  <div class='card'><h2>Auto-ajuste semanal</h2><div class='small'>Aderência ${weekly.adherence}% • tendência ${weekly.realTrend}% • ajuste: ${weekly.action}</div></div>
+  <div class='card'><h2>Score Dieta (Ascensão)</h2><div class='small'>XP diário base: ${score} • integra Integridade/Combo/Streak.</div></div>
+  <div class='card'><div class='row'><button class='btn' id='btnWeight'>Registrar peso</button><button class='btn' id='btnRoutine'>Atualizar rotina/mental</button><button class='btn' id='btnDietUndo'>DESFAZER</button><button class='btn danger' id='btnDietReset'>RESET HOJE</button></div></div>`;
+
+  $('#dietMode').onchange=(e)=>{ d.mode=e.target.value; saveState(); render(); };
+  $('#btnEat').onclick=()=>{ openModal('Registro inteligente','< 3s',`<div class='row'><button class='btn primary' data-mode='favoritos'>Favoritos</button><button class='btn' data-mode='peso'>Peso real</button><button class='btn' data-mode='visual'>Estimativa visual</button><button class='btn' data-mode='voz'>Voz</button></div><div id='dietModePanel'></div>`); const panel=()=>modalBody.querySelector('#dietModePanel');
+    const bind=(mode)=>{
+      if(mode==='favoritos') panel().innerHTML=`<div class='list'>${favoriteList(d).map(f=>`<button class='btn wide' data-fav='${f.name}'>${f.name}</button>`).join('')}</div>`;
+      if(mode==='peso') panel().innerHTML=`<div class='row'><select id='foodSel'>${FOOD_DB.map(f=>`<option>${f.name}</option>`).join('')}</select><input id='foodGrams' type='number' value='120' min='10' step='5'/><button class='btn primary' id='addFood'>Registrar</button></div>`;
+      if(mode==='visual') panel().innerHTML=`<div class='row'><button class='btn' data-size='pequena'>Pequeno</button><button class='btn' data-size='medio'>Médio</button><button class='btn' data-size='grande'>Grande</button></div>`;
+      if(mode==='voz') panel().innerHTML=`<div class='row'><input id='voiceText' placeholder='Comi arroz, feijão e frango'/><button class='btn primary' id='voiceAdd'>Registrar voz</button></div>`;
+      panel().querySelectorAll('[data-fav]').forEach(b=>b.onclick=()=>{ const fav=DIET_FAVORITES.find(x=>x.name===b.dataset.fav); const meal=mealFromFoods(fav.name,fav.foods); d.favoritesStats[fav.name]=(d.favoritesStats[fav.name]||0)+1; registerDietEntry(d,meal,'favoritos'); saveState(); closeModal(); render(); });
+      const addFood=panel().querySelector('#addFood'); if(addFood) addFood.onclick=()=>{ const f=foodByName(panel().querySelector('#foodSel').value), grams=Number(panel().querySelector('#foodGrams').value||0); if(!f||grams<=0) return; registerDietEntry(d,mealFromFoods(`${f.name} (${grams}g)`,[[f.name,grams]]),'peso'); saveState(); closeModal(); render(); };
+      panel().querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{ registerDietEntry(d,visualEstimate(b.dataset.size),'visual'); saveState(); closeModal(); render(); });
+      const voice=panel().querySelector('#voiceAdd'); if(voice) voice.onclick=()=>{ const meal=parseVoice(panel().querySelector('#voiceText').value||''); if(!meal) return showToast('Fale o que comeu'); registerDietEntry(d,meal,'voz'); saveState(); closeModal(); render(); };
+    };
+    bind('favoritos');
+    modalBody.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>bind(b.dataset.mode));
+  };
+
+  $('#btnWeight').onclick=()=>{ const kg=Number(prompt('Peso atual (kg):', String(S.targets.weightKg||90))); if(!kg||kg<40||kg>250) return showToast('Peso inválido'); d.weights.push({kg,at:new Date().toISOString()}); S.targets.weightKg=kg; setLastAction({type:'dietWeight'}); saveState(); render(); };
+  $('#btnRoutine').onclick=()=>{ const steps=Number(prompt('Passos/dia:', String(d.routine.steps||8000))); const awake=Number(prompt('Horas acordado:', String(d.routine.awakeHours||16))); const fatigue=Number(prompt('Fadiga percebida (0-100):', String(d.mental.fatigue||45))); if(steps>0) d.routine.steps=steps; if(awake>0) d.routine.awakeHours=awake; if(fatigue>=0) d.mental.fatigue=Math.max(0,Math.min(100,fatigue)); saveState(); render(); };
+  view.querySelectorAll('[data-trigger]').forEach(btn=>btn.onclick=()=>{ applyTrigger(d,btn.dataset.trigger); saveState(); render(); });
+  $('#btnDietUndo').onclick=undoLastAction;
+  $('#btnDietReset').onclick=()=>{ d.entries=[]; d.triggerMap={fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; adjustIntegrity(-4); saveState(); render(); };
+}
+
+
+function ensureHormonalToday(){
+  let h=getTodayObj(S.hormonal.history||[]);
+  if(!h){ h={date:todayKey(), sleepHours:7.5, sleepQuality:75, stress:45, sunMin:20, recovery:70, notes:''}; (S.hormonal.history||(S.hormonal.history=[])).push(h); }
+  return h;
+}
+
+function syncMetabolicSystems(){
+  const d=ensureDietToday();
+  const h=ensureHormonalToday();
+  const targets=calcTargetsAuto();
+  const totals=sumDiet(d);
+  const micro=micronutrientStatus(totals);
+  const z=micro.find(x=>x.k==='zinco')?.pct||0, mg=micro.find(x=>x.k==='magnesio')?.pct||0, vd=micro.find(x=>x.k==='vitD')?.pct||0;
+  d.mental.fatigue=Math.round((d.mental.fatigue*0.75) + ((h.stress + (100-h.recovery))/2)*0.25);
+  d.routine.awakeHours=Math.max(12,Math.min(19,24-(h.sleepHours||7.5)));
+  h.hormonalSignals={deficitPct:Math.round(((targets.tdee-targets.kcal)/Math.max(1,targets.tdee))*100),fatIntake:totals.g,cholIntake:totals.chol,microCore:Math.round((z+mg+vd)/3),trainLoad:targets.signals.treino.volume};
+  h.lastSync=new Date().toISOString();
+  return {d,h,targets,totals,micro};
+}
+function rollingRisk(days=3){
+  const ds=(S.diet.history||[]).slice(-days);
+  const hs=(S.hormonal.history||[]).slice(-days);
+  const deficits=ds.map(x=>x.autoTargets ? Math.round(((x.autoTargets.tdee-x.autoTargets.kcal)/Math.max(1,x.autoTargets.tdee))*100) : 0);
+  const lowSleep=hs.filter(x=>(x.sleepHours||0)<6.5).length;
+  const hardDef=deficits.filter(x=>x>25).length;
+  return {hardDef,lowSleep,days,isChronic:(hardDef>=2 || lowSleep>=2)};
+}
+
+function testosteroneEngine(){
+  const {d,h,targets,totals,micro}=syncMetabolicSystems();
+  const mBy=(k)=>micro.find(x=>x.k===k)||{pct:0,val:0};
+  const treino=targets.signals.treino;
+  const bf=targets.signals.shape.bf;
+  const deficit=Math.max(0,targets.tdee-targets.kcal);
+  const deficitPct=Math.round((deficit/Math.max(1,targets.tdee))*100);
+  const sleepScore=Math.max(0,Math.min(100,Math.round((h.sleepHours/8)*60 + (h.sleepQuality/100)*40)));
+  const bodyfatScore=bf<7?35:bf>18?45:90;
+  const fatScore=Math.max(0,Math.min(100,Math.round((totals.g/Math.max(1,targets.g))*100)));
+  const microScore=Math.round((mBy('zinco').pct + mBy('magnesio').pct + mBy('vitD').pct)/3);
+  const loadScore=Math.max(0,Math.min(100, Math.round(100 - (treino.volume>28?35:0) - (treino.intensity>0.88?20:0) + (h.recovery>70?8:0))));
+  const stressScore=Math.max(0,100-h.stress);
+  const deficitScore=deficitPct>28?30:deficitPct>22?55:85;
+  const cholScore=Math.max(0,Math.min(100,Math.round((totals.chol/250)*100)));
+  const score=Math.round(sleepScore*0.21 + bodyfatScore*0.11 + fatScore*0.13 + microScore*0.18 + loadScore*0.12 + deficitScore*0.1 + stressScore*0.08 + cholScore*0.07);
+  const flags=[];
+  if(deficitPct>25) flags.push('Déficit agressivo prolongado');
+  if(h.sleepHours<6.5 || h.sleepQuality<60) flags.push('Sono insuficiente');
+  if(treino.volume>30 || (treino.intensity>0.9 && h.recovery<60)) flags.push('Sinal de overtraining');
+  if(bf<7 || bf>18) flags.push('BF fora da faixa hormonal ótima');
+  const suggestions=[];
+  const idealSleep=`Sono alvo: ${S.windows.sleep} → ${S.windows.wake} (7h30–8h30).`;
+  suggestions.push(idealSleep);
+  if(h.sunMin<20 || mBy('vitD').pct<70) suggestions.push('Exposição solar diária: 20–30 min no meio do dia.');
+  if(totals.g<targets.g) suggestions.push('Aumentar gorduras boas (+10 a +15g), reduzir carbo em mesma caloria.');
+  if(treino.volume>28) suggestions.push('Reduzir volume de treino em 15–25% por 1 semana.');
+  if(h.recovery<60 || h.stress>65) suggestions.push('Inserir 1 dia extra de recuperação ativa esta semana.');
+  if(deficitPct>25) suggestions.push('Preservação hormonal no cutting: subir 100–150 kcal (carbo + gordura).');
+  if(totals.chol<220) suggestions.push('Colesterol dietético baixo: incluir ovos/carnes magras no plano.');
+  const chronic=rollingRisk(3);
+  if(chronic.isChronic) flags.push('Risco crônico (3 dias): déficit/sono comprometido');
+  return {score,flags,suggestions,components:{sleepScore,bodyfatScore,fatScore,microScore,loadScore,deficitScore,stressScore,cholScore},deficitPct,totals,targets,micro,h,treino,bf,chronic};
+}
+function viewTestosterona(){
+  const h=ensureHormonalToday();
+  const t=testosteroneEngine();
+  const critical=['zinco','magnesio','vitD'];
+  const microCritical=t.micro.filter(x=>critical.includes(x.k));
+  const status=t.score>=80?'✅ Ambiente hormonal forte':t.score>=60?'⚠ Preservação parcial':'❌ Risco hormonal';
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>TESTOSTERONA NATURAL</h2><div class='small'>Integração DIETA + TREINO + SONO + ROTINA</div></div><span class='badge'>Score ${t.score}/100</span></div><div class='progress'><div style='width:${t.score}%'></div></div><div class='hint'>${status}</div></div>
+  <div class='card'><h2>Monitoramento endocrinológico</h2><div class='small'>Sono: ${h.sleepHours}h • qualidade ${h.sleepQuality}% • BF ${t.bf}% • gordura dieta ${t.totals.g}g</div><div class='small'>Micros críticos: Zinco ${Math.round((microCritical.find(x=>x.k==='zinco')||{pct:0}).pct)}% • Magnésio ${Math.round((microCritical.find(x=>x.k==='magnesio')||{pct:0}).pct)}% • Vit D ${Math.round((microCritical.find(x=>x.k==='vitD')||{pct:0}).pct)}%</div><div class='small'>Colesterol dieta: ${t.totals.chol}mg • Treino: volume ${t.treino.volume} • intensidade ${Math.round(t.treino.intensity*100)}% • déficit ${t.deficitPct}%</div></div>
+  <div class='card'><h2>Detecção automática</h2><div class='list'>${(t.flags.length?t.flags:['Sem alertas críticos']).map(f=>`<div class='item'><div class='name'>${f}</div></div>`).join('')}</div></div>
+  <div class='card'><h2>Ajustes automáticos (evidência: ISSN/Helms/Schoenfeld/Hackney)</h2><div class='list'>${t.suggestions.map(s=>`<div class='item'><div class='meta'>${s}</div></div>`).join('')}</div></div>
+  <div class='card'><h2>Integração com Cutting</h2><div class='small'>Objetivo: preservar testosterona durante perda de gordura e manter performance/massa magra.</div><div class='small'>Se score < 60 por 3 dias: priorizar recovery + ajustar déficit + revisar volume.</div></div>
+  <div class='card'><h2>Sincronia dos módulos</h2><div class='small'>Última sincronização: ${t.h.lastSync?new Date(t.h.lastSync).toLocaleString('pt-BR'):'agora'} • risco crônico 3d: ${t.chronic.isChronic?'ALTO':'controlado'}.</div><div class='small'>DIETA↔TREINO↔SONO↔ROTINA↔MENTAL recalculados automaticamente a cada abertura.</div></div>
+  <div class='card'><div class='row'><button class='btn' id='btnHormonalLog'>Atualizar sono/estresse</button><button class='btn' id='btnHormonalApply'>Aplicar ajustes sugeridos</button></div></div>`;
+  $('#btnHormonalLog').onclick=()=>{
+    const sh=Number(prompt('Horas de sono:', String(h.sleepHours)));
+    const sq=Number(prompt('Qualidade do sono (0-100):', String(h.sleepQuality)));
+    const st=Number(prompt('Estresse percebido (0-100):', String(h.stress)));
+    const sm=Number(prompt('Exposição solar (min):', String(h.sunMin)));
+    const rc=Number(prompt('Recuperação (0-100):', String(h.recovery)));
+    if(sh>0) h.sleepHours=sh; if(sq>=0) h.sleepQuality=Math.max(0,Math.min(100,sq)); if(st>=0) h.stress=Math.max(0,Math.min(100,st)); if(sm>=0) h.sunMin=sm; if(rc>=0) h.recovery=Math.max(0,Math.min(100,rc));
+    saveState(); render();
+  };
+  $('#btnHormonalApply').onclick=()=>{
+    const d=ensureDietToday();
+    if(t.deficitPct>25) d.mode='cutting';
+    if(t.deficitPct>25) d.autoTargets.kcal=Math.round(d.autoTargets.kcal+120);
+    if(t.totals.g<t.targets.g) d.autoTargets.g=Math.round(d.autoTargets.g+10);
+    if(t.treino.volume>28) S.training.program.week=Math.max(1,(S.training.program.week||1)-1);
+    h.recovery=Math.min(100,h.recovery+8);
+    adjustIntegrity(+1);
+    saveState();
+    render();
+  };
 }
 
 function getProgramAndDay(){
@@ -606,7 +891,7 @@ function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class=
 
 function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' && S.strictMode) beep(140,.09,.08);
   switch(activeTab){
-    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino();
+    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'TESTO': return viewTestosterona();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
     case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
