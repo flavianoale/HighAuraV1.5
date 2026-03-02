@@ -112,7 +112,7 @@ const TRAINING_PROGRAMS = {
 
 
 const TAB_DEFS = [
-  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},
+  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'TESTO',label:'Testosterona'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
@@ -137,7 +137,7 @@ function defaultState(){
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
     training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
-    diet:{history:[]},
+    diet:{history:[]}, hormonal:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
     social:{history:[]}, ops:{history:[]}, finance:{history:[]},
@@ -159,7 +159,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -455,6 +455,79 @@ function viewDieta(){
   view.querySelectorAll('[data-trigger]').forEach(btn=>btn.onclick=()=>{ applyTrigger(d,btn.dataset.trigger); saveState(); render(); });
   $('#btnDietUndo').onclick=undoLastAction;
   $('#btnDietReset').onclick=()=>{ d.entries=[]; d.triggerMap={fome:0,ansiedade:0,tedio:0,estresse:0,social:0}; adjustIntegrity(-4); saveState(); render(); };
+}
+
+
+function ensureHormonalToday(){
+  let h=getTodayObj(S.hormonal.history||[]);
+  if(!h){ h={date:todayKey(), sleepHours:7.5, sleepQuality:75, stress:45, sunMin:20, recovery:70, notes:''}; (S.hormonal.history||(S.hormonal.history=[])).push(h); }
+  return h;
+}
+function testosteroneEngine(){
+  const d=ensureDietToday();
+  const h=ensureHormonalToday();
+  const targets=calcTargetsAuto();
+  const totals=sumDiet(d);
+  const micro=micronutrientStatus(totals);
+  const mBy=(k)=>micro.find(x=>x.k===k)||{pct:0,val:0};
+  const treino=targets.signals.treino;
+  const bf=targets.signals.shape.bf;
+  const deficit=Math.max(0,targets.tdee-targets.kcal);
+  const deficitPct=Math.round((deficit/Math.max(1,targets.tdee))*100);
+  const sleepScore=Math.max(0,Math.min(100,Math.round((h.sleepHours/8)*60 + (h.sleepQuality/100)*40)));
+  const bodyfatScore=bf<7?35:bf>18?45:90;
+  const fatScore=Math.max(0,Math.min(100,Math.round((totals.g/Math.max(1,targets.g))*100)));
+  const microScore=Math.round((mBy('zinco').pct + mBy('magnesio').pct + mBy('vitD').pct)/3);
+  const loadScore=Math.max(0,Math.min(100, Math.round(100 - (treino.volume>28?35:0) - (treino.intensity>0.88?20:0) + (h.recovery>70?8:0))));
+  const stressScore=Math.max(0,100-h.stress);
+  const deficitScore=deficitPct>28?30:deficitPct>22?55:85;
+  const score=Math.round(sleepScore*0.23 + bodyfatScore*0.12 + fatScore*0.14 + microScore*0.2 + loadScore*0.13 + deficitScore*0.1 + stressScore*0.08);
+  const flags=[];
+  if(deficitPct>25) flags.push('Déficit agressivo prolongado');
+  if(h.sleepHours<6.5 || h.sleepQuality<60) flags.push('Sono insuficiente');
+  if(treino.volume>30 || (treino.intensity>0.9 && h.recovery<60)) flags.push('Sinal de overtraining');
+  if(bf<7 || bf>18) flags.push('BF fora da faixa hormonal ótima');
+  const suggestions=[];
+  const idealSleep=`Sono alvo: ${S.windows.sleep} → ${S.windows.wake} (7h30–8h30).`;
+  suggestions.push(idealSleep);
+  if(h.sunMin<20 || mBy('vitD').pct<70) suggestions.push('Exposição solar diária: 20–30 min no meio do dia.');
+  if(totals.g<targets.g) suggestions.push('Aumentar gorduras boas (+10 a +15g), reduzir carbo em mesma caloria.');
+  if(treino.volume>28) suggestions.push('Reduzir volume de treino em 15–25% por 1 semana.');
+  if(h.recovery<60 || h.stress>65) suggestions.push('Inserir 1 dia extra de recuperação ativa esta semana.');
+  if(deficitPct>25) suggestions.push('Preservação hormonal no cutting: subir 100–150 kcal (carbo + gordura).');
+  return {score,flags,suggestions,components:{sleepScore,bodyfatScore,fatScore,microScore,loadScore,deficitScore,stressScore},deficitPct,totals,targets,micro,h,treino,bf};
+}
+function viewTestosterona(){
+  const h=ensureHormonalToday();
+  const t=testosteroneEngine();
+  const critical=['zinco','magnesio','vitD'];
+  const microCritical=t.micro.filter(x=>critical.includes(x.k));
+  const status=t.score>=80?'✅ Ambiente hormonal forte':t.score>=60?'⚠ Preservação parcial':'❌ Risco hormonal';
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>TESTOSTERONA NATURAL</h2><div class='small'>Integração DIETA + TREINO + SONO + ROTINA</div></div><span class='badge'>Score ${t.score}/100</span></div><div class='progress'><div style='width:${t.score}%'></div></div><div class='hint'>${status}</div></div>
+  <div class='card'><h2>Monitoramento endocrinológico</h2><div class='small'>Sono: ${h.sleepHours}h • qualidade ${h.sleepQuality}% • BF ${t.bf}% • gordura dieta ${t.totals.g}g</div><div class='small'>Micros críticos: Zinco ${Math.round((microCritical.find(x=>x.k==='zinco')||{pct:0}).pct)}% • Magnésio ${Math.round((microCritical.find(x=>x.k==='magnesio')||{pct:0}).pct)}% • Vit D ${Math.round((microCritical.find(x=>x.k==='vitD')||{pct:0}).pct)}%</div><div class='small'>Treino: volume ${t.treino.volume} • intensidade ${Math.round(t.treino.intensity*100)}% • déficit ${t.deficitPct}%</div></div>
+  <div class='card'><h2>Detecção automática</h2><div class='list'>${(t.flags.length?t.flags:['Sem alertas críticos']).map(f=>`<div class='item'><div class='name'>${f}</div></div>`).join('')}</div></div>
+  <div class='card'><h2>Ajustes automáticos (evidência: ISSN/Helms/Schoenfeld/Hackney)</h2><div class='list'>${t.suggestions.map(s=>`<div class='item'><div class='meta'>${s}</div></div>`).join('')}</div></div>
+  <div class='card'><h2>Integração com Cutting</h2><div class='small'>Objetivo: preservar testosterona durante perda de gordura e manter performance/massa magra.</div><div class='small'>Se score < 60 por 3 dias: priorizar recovery + ajustar déficit + revisar volume.</div></div>
+  <div class='card'><div class='row'><button class='btn' id='btnHormonalLog'>Atualizar sono/estresse</button><button class='btn' id='btnHormonalApply'>Aplicar ajustes sugeridos</button></div></div>`;
+  $('#btnHormonalLog').onclick=()=>{
+    const sh=Number(prompt('Horas de sono:', String(h.sleepHours)));
+    const sq=Number(prompt('Qualidade do sono (0-100):', String(h.sleepQuality)));
+    const st=Number(prompt('Estresse percebido (0-100):', String(h.stress)));
+    const sm=Number(prompt('Exposição solar (min):', String(h.sunMin)));
+    const rc=Number(prompt('Recuperação (0-100):', String(h.recovery)));
+    if(sh>0) h.sleepHours=sh; if(sq>=0) h.sleepQuality=Math.max(0,Math.min(100,sq)); if(st>=0) h.stress=Math.max(0,Math.min(100,st)); if(sm>=0) h.sunMin=sm; if(rc>=0) h.recovery=Math.max(0,Math.min(100,rc));
+    saveState(); render();
+  };
+  $('#btnHormonalApply').onclick=()=>{
+    const d=ensureDietToday();
+    if(t.deficitPct>25) d.mode='cutting';
+    if(t.totals.g<t.targets.g) showToast('Ajuste: subir gorduras boas hoje');
+    if(t.treino.volume>28) showToast('Ajuste: reduzir volume de treino esta semana');
+    adjustIntegrity(+1);
+    saveState();
+    render();
+  };
 }
 
 function getProgramAndDay(){
@@ -791,7 +864,7 @@ function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class=
 
 function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' && S.strictMode) beep(140,.09,.08);
   switch(activeTab){
-    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino();
+    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'TESTO': return viewTestosterona();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
     case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
