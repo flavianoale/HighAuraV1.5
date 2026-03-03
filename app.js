@@ -132,6 +132,7 @@ function defaultState(){
     v:APP_VERSION, createdAt:start.toISOString(), campaignStart:start.toISOString(),
     class:'conquistador', strictMode:false,
     theme:{crt:true}, sounds:{enabled:true,music:true,volume:0.6},
+    loading:{imageSeconds:3},
     windows:{wake:'04:40',morningEnd:'07:30',studyStart:'08:30',studyEnd:'11:30',workStart:'12:00',workEnd:'16:00',trainStart:'16:30',trainEnd:'18:30',nightStart:'19:00',sleep:'21:30'},
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
@@ -148,7 +149,8 @@ function defaultState(){
 
 let S = loadState();
 let activeTab = 'DASH';
-let audioCtx, musicAudio;
+let audioCtx, musicAudio, startSfxAudio, tabClickAudio;
+let loadingImageUrls = [];
 let timer = {running:false, total:0, left:0, startedAt:0, paused:false, topic:''};
 let timerInterval;
 let workoutTimer = {running:false, mode:'idle', left:0, total:0, startedAt:0, paused:false};
@@ -159,7 +161,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -172,6 +174,63 @@ function beep(freq=880,dur=0.06,g=0.08){ if(!S.sounds.enabled) return; try{ audi
 async function loadMusicIfAny(){ try{ const blob=await idb.get('music'); if(!blob) return; if(musicAudio){musicAudio.pause(); musicAudio=null;} const url=URL.createObjectURL(blob); musicAudio = new Audio(url); musicAudio.loop=true; musicAudio.volume=S.sounds.volume||0.6; }catch{} }
 function startMusic(){ if(S.sounds.enabled && S.sounds.music && musicAudio){ musicAudio.volume=S.sounds.volume||0.6; musicAudio.play().catch(()=>{});} }
 function stopMusic(){ if(musicAudio) musicAudio.pause(); }
+async function loadStartSfxIfAny(){ try{ const blob=await idb.get('start_sfx'); if(!blob) return; const url=URL.createObjectURL(blob); startSfxAudio = new Audio(url); startSfxAudio.volume=S.sounds.volume||0.6; }catch{} }
+async function loadTabClickSfxIfAny(){ try{ const blob=await idb.get('tab_click_sfx'); if(!blob) return; const url=URL.createObjectURL(blob); tabClickAudio = new Audio(url); tabClickAudio.volume=S.sounds.volume||0.6; }catch{} }
+async function loadLoadingImagesIfAny(){
+  try{
+    loadingImageUrls.forEach((u)=>URL.revokeObjectURL(u));
+    loadingImageUrls = [];
+    for(let i=1;i<=5;i++){
+      const blob = await idb.get(`loading_image_${i}`);
+      if(blob) loadingImageUrls.push(URL.createObjectURL(blob));
+    }
+  }catch{}
+}
+async function loadStartupAssets(){ await Promise.all([loadMusicIfAny(), loadStartSfxIfAny(), loadTabClickSfxIfAny(), loadLoadingImagesIfAny()]); }
+function playStartSound(){
+  beep(940,.08,.1);
+  if(!S.sounds.enabled) return Promise.resolve();
+  if(!startSfxAudio) return Promise.resolve();
+  return new Promise((resolve)=>{
+    startSfxAudio.currentTime=0;
+    startSfxAudio.volume=S.sounds.volume||0.6;
+    const done=()=>{ startSfxAudio.removeEventListener('ended',done); resolve(); };
+    startSfxAudio.addEventListener('ended',done,{once:true});
+    startSfxAudio.play().then(()=>setTimeout(done,2500)).catch(done);
+  });
+}
+function runLoadingScreen(){
+  const panel=$('#loadingScreen');
+  const visual=$('#loadingVisual');
+  const bar=$('#loadingBarFill');
+  const secs=Math.max(1,Number(S.loading?.imageSeconds)||3);
+  const totalSlides=loadingImageUrls.length||5;
+  const totalMs=totalSlides*secs*1000;
+  const fallback='linear-gradient(135deg,#0b0b0b,#1f1f1f 45%,#0a0a0a)';
+  panel.style.display='flex';
+  panel.setAttribute('aria-hidden','false');
+  startMusic();
+  return new Promise((resolve)=>{
+    const startAt=performance.now();
+    const tick=()=>{
+      const elapsed=performance.now()-startAt;
+      const pct=Math.max(0,Math.min(100,(elapsed/totalMs)*100));
+      const idx=Math.min(totalSlides-1,Math.floor(elapsed/(secs*1000)));
+      const img=loadingImageUrls[idx]||null;
+      visual.style.backgroundImage=img?`url('${img}')`:fallback;
+      bar.style.width=`${pct}%`;
+      if(elapsed>=totalMs){
+        stopMusic();
+        panel.style.display='none';
+        panel.setAttribute('aria-hidden','true');
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
 
 function dopamineHit(gain, tag='generic'){
   const layerId='dopamineLayer';
@@ -241,7 +300,17 @@ function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada p
 function applyTheme(){ document.body.classList.toggle('crt', !!S.theme.crt); }
 function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentWindow(); $('#missionLine').innerHTML=`MISSÃO DO MOMENTO: <b>${win.name}</b> • fecha em <b>${timeLeftInWindow(win)}</b>`; }
 
-function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; beep(760,.03,.05); render(); }; tabs.appendChild(b);} }
+function playTabClickSound(){
+  if(!S.sounds.enabled) return;
+  if(tabClickAudio){
+    tabClickAudio.currentTime=0;
+    tabClickAudio.volume=S.sounds.volume||0.6;
+    tabClickAudio.play().catch(()=>beep(760,.03,.05));
+    return;
+  }
+  beep(760,.03,.05);
+}
+function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; playTabClickSound(); render(); }; tabs.appendChild(b);} }
 
 function pressurePanelHTML(){ const win=currentWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${timeLeftInWindow(win)}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
 
@@ -872,20 +941,27 @@ function buildDailyReport(k){ const prog=todayProgress(); const study=S.study.hi
 function downloadText(name,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),600); }
 function viewRel(){ const k=todayKey(), report=buildDailyReport(k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Relatório</div><div class='small'>Diário e exportável</div></div><button class='btn' id='btnCopy'>COPIAR</button></div><pre>${report}</pre><div class='row'><button class='btn' id='btnExportTXT'>EXPORTAR TXT</button><button class='btn' id='btnExportJSON'>EXPORTAR JSON</button></div></div>`; $('#btnCopy').onclick=async()=>{try{await navigator.clipboard.writeText(report); showToast('Copiado');}catch{showToast('Não consegui copiar')}}; $('#btnExportTXT').onclick=()=>downloadText(`ascensao-${k}.txt`,report); $('#btnExportJSON').onclick=()=>downloadText(`ascensao-backup-${k}.json`,JSON.stringify(S,null,2)); }
 
-function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
-  <div class='card'><h2>Música</h2><div class='hint'>Upload mp3/m4a salvo offline no IndexedDB.</div><input id='musicFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR</button></div></div>
+function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Duração por imagem (seg)</label><input id='cfgLoadSec' type='number' min='1' max='10' value='${S.loading?.imageSeconds||3}'></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
+  <div class='card'><h2>Áudios</h2><div class='hint'>Upload da música de fundo, som de clique no START e som de clique nas abas.</div><label>Música de fundo</label><input id='musicFile' type='file' accept='audio/*'><label>Som do botão START</label><input id='startSfxFile' type='file' accept='audio/*'><label>Som de clique das abas</label><input id='tabSfxFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR MÚSICA</button><button class='btn danger' id='btnStartSfxDelete'>APAGAR SOM START</button><button class='btn danger' id='btnTabSfxDelete'>APAGAR SOM ABAS</button></div></div>
+  <div class='card'><h2>Tela de carregamento (5 imagens)</h2><div class='hint'>As imagens aparecem em sequência, 3s cada (ou valor configurado acima), estilo loading de jogo.</div><div class='grid'>${[1,2,3,4,5].map((n)=>`<div class='g6'><label>Imagem ${n}</label><input type='file' id='loadImg${n}' accept='image/*'></div>`).join('')}</div><div class='row'><button class='btn' id='btnSaveLoadingImages'>SALVAR IMAGENS</button><button class='btn danger' id='btnDeleteLoadingImages'>APAGAR TODAS</button></div></div>
   <div class='card'><h2>Backup</h2><div class='row'><button class='btn' id='btnExport'>EXPORTAR JSON</button><button class='btn' id='btnImport'>IMPORTAR JSON</button><input id='importFile' type='file' accept='application/json' style='display:none'></div><button class='btn danger' id='btnWipe'>RESET TOTAL</button>
   <button class='btn' id='btnForceRefresh'>FORÇAR ATUALIZAÇÃO APP</button></div>`;
   $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
-  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
+  $('#btnCfgSave').onclick=()=>{ S.targets.goal=$('#cfgGoal').value; S.targets.weightKg=Number($('#cfgW').value); S.targets.bfPct=Number($('#cfgBF').value); S.targets.activity=$('#cfgAct').value; S.strictMode=$('#cfgStrict').value==='1'; S.theme.crt=$('#cfgCRT').value==='1'; S.sounds.enabled=$('#cfgSound').value==='1'; S.sounds.music=$('#cfgMusic').value==='1'; S.training.naturalMode=$('#cfgNatural').value==='1'; S.training.anthro={...(S.training.anthro||{}), femur:$('#cfgFemur').value, braco:$('#cfgBraco').value}; S.loading={...(S.loading||{}), imageSeconds:Math.max(1,Math.min(10,Number($('#cfgLoadSec').value)||3))}; S.sounds.volume=Math.max(0,Math.min(1,Number($('#cfgVol').value))); Object.keys(S.windows).forEach(k=>S.windows[k]=$(`#w_${k}`).value||S.windows[k]); saveState(); applyTheme(); if(!S.sounds.enabled) stopMusic(); showToast('Config salva'); render(); };
   $('#musicFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('music',f); await loadMusicIfAny(); showToast('Música salva'); };
+  $('#startSfxFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('start_sfx',f); await loadStartSfxIfAny(); showToast('Som START salvo'); };
+  $('#tabSfxFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('tab_click_sfx',f); await loadTabClickSfxIfAny(); showToast('Som das abas salvo'); };
   $('#btnMusicPlay').onclick=()=>{ startMusic(); showToast('Play'); };
   $('#btnMusicStop').onclick=()=>{ stopMusic(); showToast('Stop'); };
   $('#btnMusicDelete').onclick=async()=>{ await idb.del('music'); if(musicAudio){musicAudio.pause();musicAudio=null;} showToast('Música apagada'); };
+  $('#btnStartSfxDelete').onclick=async()=>{ await idb.del('start_sfx'); startSfxAudio=null; showToast('Som START apagado'); };
+  $('#btnTabSfxDelete').onclick=async()=>{ await idb.del('tab_click_sfx'); tabClickAudio=null; showToast('Som das abas apagado'); };
+  $('#btnSaveLoadingImages').onclick=async()=>{ for(let i=1;i<=5;i++){ const f=$(`#loadImg${i}`).files?.[0]; if(f) await idb.set(`loading_image_${i}`,f); } await loadLoadingImagesIfAny(); showToast('Imagens de loading salvas'); };
+  $('#btnDeleteLoadingImages').onclick=async()=>{ for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); await loadLoadingImagesIfAny(); showToast('Imagens de loading apagadas'); };
   $('#btnExport').onclick=()=>downloadText(`ascensao-backup-${todayKey()}.json`,JSON.stringify(S,null,2));
   $('#btnImport').onclick=()=>$('#importFile').click();
-  $('#importFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; try{ S=migrate(JSON.parse(await f.text())); saveState(); applyTheme(); await loadMusicIfAny(); showToast('Importado'); render(); }catch{ showToast('JSON inválido'); } };
-  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); await idb.del('music'); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
+  $('#importFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; try{ S=migrate(JSON.parse(await f.text())); saveState(); applyTheme(); await loadStartupAssets(); showToast('Importado'); render(); }catch{ showToast('JSON inválido'); } };
+  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); await idb.del('music'); await idb.del('start_sfx'); await idb.del('tab_click_sfx'); for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
   $('#btnForceRefresh').onclick=forceRefreshApp;
 }
 
@@ -900,9 +976,21 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
 
 (function init(){
   applyTheme();
-  loadMusicIfAny();
+  loadStartupAssets();
   $('#startClass').value=S.class;
-  $('#btnStart').onclick=()=>{ S.class=$('#startClass').value; saveState(); $('#start').style.display='none'; $('#start').setAttribute('aria-hidden','true'); activeTab=currentWindow().tab||'DASH'; startMusic(); render(); };
+  $('#btnStart').onclick=async()=>{
+    const btn=$('#btnStart');
+    btn.disabled=true;
+    S.class=$('#startClass').value;
+    saveState();
+    await playStartSound();
+    await runLoadingScreen();
+    $('#start').style.display='none';
+    $('#start').setAttribute('aria-hidden','true');
+    activeTab=currentWindow().tab||'DASH';
+    render();
+    btn.disabled=false;
+  };
   refreshHUD();
 })();
 

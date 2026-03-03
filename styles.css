@@ -61,3 +61,10 @@ body{background:radial-gradient(1200px 600px at 10% -10%, #0b2b1b 0%, transparen
 #dopamineLayer{position:fixed;inset:0;pointer-events:none;z-index:120}
 .xp-pop{position:fixed;font-weight:800;color:#00ff8c;text-shadow:0 0 12px rgba(0,255,140,.8);animation:xpUp .9s ease forwards}
 @keyframes xpUp{0%{opacity:0;transform:translate(-50%,0) scale(.8)}15%{opacity:1;transform:translate(-50%,-8px) scale(1)}100%{opacity:0;transform:translate(-50%,-58px) scale(1.08)}}
+
+.loading-screen{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:flex-end;justify-content:flex-start;overflow:hidden}
+.loading-visual{position:absolute;inset:0;background-size:cover;background-position:center;filter:contrast(1.05) saturate(.92)}
+.loading-screen:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.62),rgba(0,0,0,.18) 40%,rgba(0,0,0,.36));pointer-events:none}
+.loading-bar-wrap{position:relative;z-index:2;width:min(42vw,320px);height:12px;border:1px solid rgba(255,255,255,.9);margin:0 0 22px 18px;background:rgba(255,255,255,.08)}
+.loading-bar-fill{height:100%;width:0%;background:#fff;transition:width .06s linear}
+.loading-text{position:relative;z-index:2;color:#fff;letter-spacing:.22em;font-size:12px;margin:0 0 40px 18px;text-shadow:0 0 8px rgba(0,0,0,.85)}
