@@ -208,6 +208,7 @@ function runLoadingScreen(){
   const fallback='linear-gradient(135deg,#0b0b0b,#1f1f1f 45%,#0a0a0a)';
   panel.style.display='flex';
   panel.setAttribute('aria-hidden','false');
+  startMusic();
   return new Promise((resolve)=>{
     const startAt=performance.now();
     const tick=()=>{
@@ -218,6 +219,7 @@ function runLoadingScreen(){
       visual.style.backgroundImage=img?`url('${img}')`:fallback;
       bar.style.width=`${pct}%`;
       if(elapsed>=totalMs){
+        stopMusic();
         panel.style.display='none';
         panel.setAttribute('aria-hidden','true');
         resolve();
@@ -973,7 +975,6 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
     $('#start').style.display='none';
     $('#start').setAttribute('aria-hidden','true');
     activeTab=currentWindow().tab||'DASH';
-    startMusic();
     render();
     btn.disabled=false;
   };
