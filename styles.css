@@ -68,3 +68,7 @@ body{background:radial-gradient(1200px 600px at 10% -10%, #0b2b1b 0%, transparen
 .loading-bar-wrap{position:relative;z-index:2;width:min(42vw,320px);height:12px;border:1px solid rgba(255,255,255,.9);margin:0 0 22px 18px;background:rgba(255,255,255,.08)}
 .loading-bar-fill{height:100%;width:0%;background:#fff;transition:width .06s linear}
 .loading-text{position:relative;z-index:2;color:#fff;letter-spacing:.22em;font-size:12px;margin:0 0 40px 18px;text-shadow:0 0 8px rgba(0,0,0,.85)}
+
+
+.shape-avatar{display:flex;justify-content:center;align-items:center;min-height:260px;border:1px solid #0a5134;border-radius:14px;background:radial-gradient(circle at 50% 25%,rgba(0,255,140,.18),rgba(0,0,0,0) 55%),#03130d}
+.shape-avatar-svg{width:min(240px,100%);height:auto;filter:drop-shadow(0 0 12px rgba(0,255,140,.35));}
