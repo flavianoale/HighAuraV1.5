@@ -1,6 +1,6 @@
 /* ASCENSÃO OS PRO – offline single-file */
-const APP_VERSION = 5;
-const STORAGE_KEY = 'ascensao_os_state_v5';
+const APP_VERSION = 6;
+const STORAGE_KEY = 'ascensao_os_state_v6';
 const TOTAL_BIBLE_CHAPTERS = 1189;
 
 const RANKS = [
@@ -148,7 +148,9 @@ function defaultState(){
 
 let S = loadState();
 let activeTab = 'DASH';
-let audioCtx, musicAudio;
+let audioCtx, musicAudio, loadingMusicAudio;
+let loadingImageUrls = [];
+let loadingProgressTimer;
 let timer = {running:false, total:0, left:0, startedAt:0, paused:false, topic:''};
 let timerInterval;
 let workoutTimer = {running:false, mode:'idle', left:0, total:0, startedAt:0, paused:false};
@@ -172,6 +174,76 @@ function beep(freq=880,dur=0.06,g=0.08){ if(!S.sounds.enabled) return; try{ audi
 async function loadMusicIfAny(){ try{ const blob=await idb.get('music'); if(!blob) return; if(musicAudio){musicAudio.pause(); musicAudio=null;} const url=URL.createObjectURL(blob); musicAudio = new Audio(url); musicAudio.loop=true; musicAudio.volume=S.sounds.volume||0.6; }catch{} }
 function startMusic(){ if(S.sounds.enabled && S.sounds.music && musicAudio){ musicAudio.volume=S.sounds.volume||0.6; musicAudio.play().catch(()=>{});} }
 function stopMusic(){ if(musicAudio) musicAudio.pause(); }
+
+async function loadLoadingAssets(){
+  try{
+    loadingImageUrls.forEach((url)=>URL.revokeObjectURL(url));
+    loadingImageUrls=[];
+    for(let i=1;i<=5;i++){
+      const blob=await idb.get(`loading_image_${i}`);
+      if(blob) loadingImageUrls.push(URL.createObjectURL(blob));
+    }
+    const blob=await idb.get('loading_music');
+    if(loadingMusicAudio){ loadingMusicAudio.pause(); loadingMusicAudio=null; }
+    if(blob){
+      const url=URL.createObjectURL(blob);
+      loadingMusicAudio = new Audio(url);
+      loadingMusicAudio.loop = true;
+      loadingMusicAudio.volume = S.sounds.volume||0.6;
+    }
+  }catch{}
+}
+
+function startLoadingMusic(){ if(S.sounds.enabled && loadingMusicAudio){ loadingMusicAudio.volume=S.sounds.volume||0.6; loadingMusicAudio.play().catch(()=>{}); } }
+function stopLoadingMusic(){ if(loadingMusicAudio) loadingMusicAudio.pause(); }
+
+function startClickSfx(){
+  beep(540,.06,.1);
+  setTimeout(()=>beep(760,.07,.11),90);
+  setTimeout(()=>beep(980,.08,.12),180);
+}
+
+async function playStartLoadingSequence(){
+  const startEl=$('#start');
+  const loadingEl=$('#loadingScreen');
+  const loadingImg=$('#loadingImage');
+  const loadingFill=$('#loadingFill');
+  const loadingCount=$('#loadingCount');
+  const fallback='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1f120f"/><stop offset="60%" stop-color="#4c2618"/><stop offset="100%" stop-color="#120b08"/></linearGradient></defs><rect width="1280" height="720" fill="url(#g)"/><text x="70" y="640" fill="#f3e7d0" font-size="44" font-family="Arial">CARREGANDO MISSÃO...</text></svg>`);
+  const images=loadingImageUrls.length?loadingImageUrls:[fallback];
+  const totalMs=images.length*3000;
+  let activeImg=0;
+  loadingImg.src=images[0];
+  loadingCount.textContent=`01/${String(images.length).padStart(2,'0')}`;
+  startEl.style.display='none';
+  loadingEl.style.display='flex';
+  loadingEl.setAttribute('aria-hidden','false');
+  stopMusic();
+  startLoadingMusic();
+
+  const startedAt=Date.now();
+  clearInterval(loadingProgressTimer);
+  loadingProgressTimer=setInterval(()=>{
+    const elapsed=Math.min(totalMs, Date.now()-startedAt);
+    const pct=Math.max(0,Math.min(100,Math.round(elapsed/totalMs*100)));
+    loadingFill.style.width=`${pct}%`;
+    const shouldImg=Math.min(images.length-1, Math.floor(elapsed/3000));
+    if(shouldImg!==activeImg){
+      activeImg=shouldImg;
+      loadingImg.src=images[activeImg];
+      loadingCount.textContent=`${String(activeImg+1).padStart(2,'0')}/${String(images.length).padStart(2,'0')}`;
+    }
+    if(elapsed>=totalMs){
+      clearInterval(loadingProgressTimer);
+      stopLoadingMusic();
+      startMusic();
+      loadingEl.style.display='none';
+      loadingEl.setAttribute('aria-hidden','true');
+      activeTab=currentWindow().tab||'DASH';
+      render();
+    }
+  },60);
+}
 
 function dopamineHit(gain, tag='generic'){
   const layerId='dopamineLayer';
@@ -872,8 +944,10 @@ function buildDailyReport(k){ const prog=todayProgress(); const study=S.study.hi
 function downloadText(name,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),600); }
 function viewRel(){ const k=todayKey(), report=buildDailyReport(k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Relatório</div><div class='small'>Diário e exportável</div></div><button class='btn' id='btnCopy'>COPIAR</button></div><pre>${report}</pre><div class='row'><button class='btn' id='btnExportTXT'>EXPORTAR TXT</button><button class='btn' id='btnExportJSON'>EXPORTAR JSON</button></div></div>`; $('#btnCopy').onclick=async()=>{try{await navigator.clipboard.writeText(report); showToast('Copiado');}catch{showToast('Não consegui copiar')}}; $('#btnExportTXT').onclick=()=>downloadText(`ascensao-${k}.txt`,report); $('#btnExportJSON').onclick=()=>downloadText(`ascensao-backup-${k}.json`,JSON.stringify(S,null,2)); }
 
-function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
+function viewCfg(){
+  view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música de fundo</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
   <div class='card'><h2>Música</h2><div class='hint'>Upload mp3/m4a salvo offline no IndexedDB.</div><input id='musicFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY</button><button class='btn' id='btnMusicStop'>STOP</button><button class='btn danger' id='btnMusicDelete'>APAGAR</button></div></div>
+  <div class='card'><h2>Tela de carregamento (estilo game)</h2><div class='hint'>Adicione 5 imagens personalizadas (3 segundos cada) e uma música para tocar durante o loading.</div><div class='grid'><div class='g12'><label>Música do loading</label><input id='loadingMusicFile' type='file' accept='audio/*'></div>${Array.from({length:5},(_,i)=>`<div class='g6'><label>Imagem ${i+1}</label><input id='loadingImg${i+1}' type='file' accept='image/*'></div>`).join('')}</div><div class='row'><button class='btn' id='btnLoadingPreview'>TESTAR TELA</button><button class='btn danger' id='btnLoadingClear'>APAGAR ITENS LOADING</button></div></div>
   <div class='card'><h2>Backup</h2><div class='row'><button class='btn' id='btnExport'>EXPORTAR JSON</button><button class='btn' id='btnImport'>IMPORTAR JSON</button><input id='importFile' type='file' accept='application/json' style='display:none'></div><button class='btn danger' id='btnWipe'>RESET TOTAL</button>
   <button class='btn' id='btnForceRefresh'>FORÇAR ATUALIZAÇÃO APP</button></div>`;
   $('#cfgGoal').value=S.targets.goal; $('#cfgAct').value=S.targets.activity; $('#cfgStrict').value=S.strictMode?'1':'0'; $('#cfgCRT').value=S.theme.crt?'1':'0'; $('#cfgSound').value=S.sounds.enabled?'1':'0'; $('#cfgMusic').value=S.sounds.music?'1':'0'; $('#cfgNatural').value=S.training.naturalMode?'1':'0'; $('#cfgFemur').value=(S.training.anthro||{}).femur||'medio'; $('#cfgBraco').value=(S.training.anthro||{}).braco||'medio';
@@ -882,10 +956,14 @@ function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class=
   $('#btnMusicPlay').onclick=()=>{ startMusic(); showToast('Play'); };
   $('#btnMusicStop').onclick=()=>{ stopMusic(); showToast('Stop'); };
   $('#btnMusicDelete').onclick=async()=>{ await idb.del('music'); if(musicAudio){musicAudio.pause();musicAudio=null;} showToast('Música apagada'); };
+  $('#loadingMusicFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set('loading_music',f); await loadLoadingAssets(); showToast('Música do loading salva'); };
+  for(let i=1;i<=5;i++){ const el=$(`#loadingImg${i}`); el.onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; await idb.set(`loading_image_${i}`,f); await loadLoadingAssets(); showToast(`Imagem ${i} salva`); }; }
+  $('#btnLoadingClear').onclick=async()=>{ await idb.del('loading_music'); for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); stopLoadingMusic(); await loadLoadingAssets(); showToast('Itens do loading apagados'); };
+  $('#btnLoadingPreview').onclick=async()=>{ startClickSfx(); await playStartLoadingSequence(); };
   $('#btnExport').onclick=()=>downloadText(`ascensao-backup-${todayKey()}.json`,JSON.stringify(S,null,2));
   $('#btnImport').onclick=()=>$('#importFile').click();
-  $('#importFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; try{ S=migrate(JSON.parse(await f.text())); saveState(); applyTheme(); await loadMusicIfAny(); showToast('Importado'); render(); }catch{ showToast('JSON inválido'); } };
-  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); await idb.del('music'); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
+  $('#importFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; try{ S=migrate(JSON.parse(await f.text())); saveState(); applyTheme(); await loadMusicIfAny(); await loadLoadingAssets(); showToast('Importado'); render(); }catch{ showToast('JSON inválido'); } };
+  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); await idb.del('music'); await idb.del('loading_music'); for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
   $('#btnForceRefresh').onclick=forceRefreshApp;
 }
 
@@ -901,8 +979,9 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
 (function init(){
   applyTheme();
   loadMusicIfAny();
+  loadLoadingAssets();
   $('#startClass').value=S.class;
-  $('#btnStart').onclick=()=>{ S.class=$('#startClass').value; saveState(); $('#start').style.display='none'; $('#start').setAttribute('aria-hidden','true'); activeTab=currentWindow().tab||'DASH'; startMusic(); render(); };
+  $('#btnStart').onclick=async()=>{ S.class=$('#startClass').value; saveState(); startClickSfx(); await playStartLoadingSequence(); $('#start').setAttribute('aria-hidden','true'); };
   refreshHUD();
 })();
 
