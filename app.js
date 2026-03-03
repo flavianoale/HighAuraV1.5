@@ -112,7 +112,7 @@ const TRAINING_PROGRAMS = {
 
 
 const TAB_DEFS = [
-  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'TESTO',label:'Testosterona'},
+  {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'SHAPE',label:'Shape'},{id:'TESTO',label:'Testosterona'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
@@ -137,7 +137,7 @@ function defaultState(){
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
     bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
-    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, study:{history:[]},
+    training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, shape:{history:[]}, study:{history:[]},
     diet:{history:[]}, hormonal:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
@@ -161,7 +161,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}}, shape:{...d.shape,...(st.shape||{})} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -590,6 +590,132 @@ function testosteroneEngine(){
   if(chronic.isChronic) flags.push('Risco crônico (3 dias): déficit/sono comprometido');
   return {score,flags,suggestions,components:{sleepScore,bodyfatScore,fatScore,microScore,loadScore,deficitScore,stressScore,cholScore},deficitPct,totals,targets,micro,h,treino,bf,chronic};
 }
+
+function ensureShapeToday(){
+  const k=todayKey();
+  let sh=(S.shape.history||[]).find(x=>x.date===k);
+  if(!sh){
+    sh={date:k,sex:'male',age:Math.max(16,Number(S.shape?.age)||25),pollock7:{peitoral:0,axilar:0,triceps:0,subescapular:0,suprailiaca:0,abdominal:0,coxa:0},notes:''};
+    if(!S.shape.history) S.shape.history=[];
+    S.shape.history.push(sh);
+  }
+  return sh;
+}
+function pollock7BodyFat(mm, age, sex='male'){
+  const vals=Object.values(mm||{}).map(v=>Math.max(0,Number(v)||0));
+  const sum=vals.reduce((a,b)=>a+b,0);
+  const A=Math.max(16, Number(age)||25);
+  const density = sex==='female'
+    ? 1.097 - (0.00046971*sum) + (0.00000056*(sum**2)) - (0.00012828*A)
+    : 1.112 - (0.00043499*sum) + (0.00000055*(sum**2)) - (0.00028826*A);
+  const bf=Math.max(3,Math.min(65,(495/Math.max(0.9,density))-450));
+  return {sum:Math.round(sum*10)/10,density,bf:Math.round(bf*10)/10};
+}
+function shapeIntelligence(){
+  const sh=ensureShapeToday();
+  const p7=pollock7BodyFat(sh.pollock7, sh.age, sh.sex);
+  const t=testosteroneEngine();
+  const a=trainingAnalytics();
+  const d=ensureDietToday();
+  const weekSets=S.training.history.filter(x=>x.date>=todayKey(new Date(Date.now()-6*86400000))).length;
+  const consistency=Math.round((todayProgress().pct*0.5)+Math.min(100,weekSets*4));
+  const nutrQuality=Math.round(Math.max(0,Math.min(100, 100-(d.mental?.fatigue||45)*0.45 + Math.min(30,(d.entries||[]).length*3))));
+  const muscleLevel=Math.round(Math.max(1,Math.min(100, a.hyper*0.45 + a.stimulus*0.25 + t.score*0.2 + consistency*0.1 )));
+  const status = p7.bf<9 ? 'SHREDDED' : p7.bf<13 ? 'ATLÉTICO' : p7.bf<18 ? 'FIT' : p7.bf<24 ? 'EM RECOMPOSIÇÃO' : 'CUTTING PRIORITÁRIO';
+  const shapeScore=Math.round(Math.max(1,Math.min(100, (100-Math.min(55,p7.bf*2))*0.35 + muscleLevel*0.4 + t.score*0.15 + nutrQuality*0.1 )));
+  const avatar={
+    shoulder:Math.max(34,Math.min(68, 36 + muscleLevel*0.26 - p7.bf*0.15)),
+    waist:Math.max(26,Math.min(62, 58 - muscleLevel*0.18 + p7.bf*0.28)),
+    glow:Math.max(0.25,Math.min(1, shapeScore/100)),
+    definition:Math.max(0.15,Math.min(0.95, (muscleLevel/100)-(p7.bf/100)*0.35 + 0.25 ))
+  };
+  const ideas=[];
+  if(p7.bf>16) ideas.push('Aplicar mini-cut de 14 dias: -250 kcal e +2k passos/dia.');
+  if(muscleLevel<60) ideas.push('Adicionar bloco de especialização (2 grupos fracos) por 4 semanas.');
+  if(t.score<65) ideas.push('Priorizar sono 7h30+ e reduzir volume 20% por 1 semana para proteger hormônios.');
+  if(a.plateau) ideas.push('Trocar estímulo principal: exercício base com variação de rep range 6-10 → 10-15.');
+  if(!ideas.length) ideas.push('Shape em boa trajetória: mantenha progressão de carga e avaliação semanal Pollock 7.');
+  return {sh,p7,t,a,muscleLevel,shapeScore,status,consistency,nutrQuality,avatar,ideas};
+}
+function shapeAvatarSVG(v){
+  return `<svg viewBox='0 0 220 260' class='shape-avatar-svg' role='img' aria-label='Avatar IA de shape'>
+    <defs>
+      <linearGradient id='gBody' x1='0' x2='1'>
+        <stop offset='0%' stop-color='rgba(0,255,140,${(0.3+v.glow*0.4).toFixed(2)})'/>
+        <stop offset='100%' stop-color='rgba(90,110,255,${(0.2+v.glow*0.35).toFixed(2)})'/>
+      </linearGradient>
+      <filter id='fGlow'><feGaussianBlur stdDeviation='4' result='b'/><feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge></filter>
+    </defs>
+    <circle cx='110' cy='30' r='18' fill='url(#gBody)' filter='url(#fGlow)'/>
+    <path d='M ${110-v.shoulder/2} 70 Q 110 52 ${110+v.shoulder/2} 70 L ${110+v.waist/2} 180 Q 110 205 ${110-v.waist/2} 180 Z' fill='url(#gBody)' stroke='rgba(0,255,140,0.9)' stroke-width='2'/>
+    <line x1='95' y1='95' x2='95' y2='170' stroke='rgba(255,255,255,${v.definition.toFixed(2)})' stroke-width='2'/>
+    <line x1='110' y1='90' x2='110' y2='175' stroke='rgba(255,255,255,${(v.definition*0.8).toFixed(2)})' stroke-width='2'/>
+    <line x1='125' y1='95' x2='125' y2='170' stroke='rgba(255,255,255,${(v.definition*0.9).toFixed(2)})' stroke-width='2'/>
+    <line x1='${110-v.shoulder/2}' y1='80' x2='${70-v.waist/10}' y2='145' stroke='rgba(0,255,140,0.8)' stroke-width='8' stroke-linecap='round'/>
+    <line x1='${110+v.shoulder/2}' y1='80' x2='${150+v.waist/10}' y2='145' stroke='rgba(0,255,140,0.8)' stroke-width='8' stroke-linecap='round'/>
+    <line x1='96' y1='180' x2='86' y2='245' stroke='rgba(0,255,140,0.8)' stroke-width='10' stroke-linecap='round'/>
+    <line x1='124' y1='180' x2='134' y2='245' stroke='rgba(0,255,140,0.8)' stroke-width='10' stroke-linecap='round'/>
+  </svg>`;
+}
+function viewShape(){
+  const d=shapeIntelligence();
+  const p=d.sh.pollock7;
+  view.innerHTML=`
+  <div class='card'><div class='kpi'><div><h2>SHAPE INTELIGENTE</h2><div class='small'>DIETA ↔ TREINO ↔ TESTO ↔ RECUPERAÇÃO</div></div><span class='badge'>Score ${d.shapeScore}/100</span></div><div class='progress'><div style='width:${d.shapeScore}%'></div></div><div class='hint'>Status atual: ${d.status} • Nível muscular ${d.muscleLevel}/100</div></div>
+  <div class='card'><div class='grid'>
+    <div class='g6'><h2>Avatar IA do shape</h2><div class='shape-avatar'>${shapeAvatarSVG(d.avatar)}</div><div class='hint'>Render paramétrico com base em BF, nível muscular e recuperação.</div></div>
+    <div class='g6'><h2>Status integrado</h2>
+      <div class='item'><div><div class='name'>Body Fat (Pollock 7)</div><div class='meta'>Soma das dobras: ${d.p7.sum} mm</div></div><span class='badge'>${d.p7.bf}%</span></div>
+      <div class='item'><div><div class='name'>Testo Engine</div><div class='meta'>Preservação hormonal</div></div><span class='badge'>${d.t.score}</span></div>
+      <div class='item'><div><div class='name'>Hypertrophy Potential</div><div class='meta'>Motor de treino</div></div><span class='badge'>${d.a.hyper}</span></div>
+      <div class='item'><div><div class='name'>Consistência 7 dias</div><div class='meta'>Ações concluídas + sets</div></div><span class='badge'>${d.consistency}</span></div>
+      <div class='item'><div><div class='name'>Qualidade nutricional</div><div class='meta'>Entradas alimentares e fadiga</div></div><span class='badge'>${d.nutrQuality}</span></div>
+    </div>
+  </div></div>
+  <div class='card'><h2>Pollock 7 dobras (Jackson & Pollock)</h2>
+    <div class='grid'>
+      <div class='g6'><label>Sexo biológico</label><select id='shapeSex'><option value='male'>Masculino</option><option value='female'>Feminino</option></select></div>
+      <div class='g6'><label>Idade</label><input id='shapeAge' type='number' min='16' max='80' value='${d.sh.age}'></div>
+      <div class='g6'><label>Peitoral (mm)</label><input id='p_peitoral' type='number' min='0' max='60' value='${p.peitoral}'></div>
+      <div class='g6'><label>Axilar média (mm)</label><input id='p_axilar' type='number' min='0' max='60' value='${p.axilar}'></div>
+      <div class='g6'><label>Tríceps (mm)</label><input id='p_triceps' type='number' min='0' max='60' value='${p.triceps}'></div>
+      <div class='g6'><label>Subescapular (mm)</label><input id='p_subescapular' type='number' min='0' max='60' value='${p.subescapular}'></div>
+      <div class='g6'><label>Supra-ilíaca (mm)</label><input id='p_suprailiaca' type='number' min='0' max='60' value='${p.suprailiaca}'></div>
+      <div class='g6'><label>Abdominal (mm)</label><input id='p_abdominal' type='number' min='0' max='60' value='${p.abdominal}'></div>
+      <div class='g6'><label>Coxa (mm)</label><input id='p_coxa' type='number' min='0' max='60' value='${p.coxa}'></div>
+    </div>
+    <div class='row'><button class='btn primary' id='btnShapeSave'>Salvar medição</button><button class='btn' id='btnShapeSyncTarget'>Usar BF no app</button></div>
+    <div class='hint'>A medição alimenta metas do cutting, motor hormonal e recomendações de treino automaticamente.</div>
+  </div>
+  <div class='card'><h2>Ideias criativas para próxima semana</h2><div class='list'>${d.ideas.map(i=>`<div class='item'><div class='meta'>${i}</div></div>`).join('')}</div></div>`;
+  $('#shapeSex').value=d.sh.sex;
+  $('#btnShapeSave').onclick=()=>{
+    d.sh.sex=$('#shapeSex').value;
+    d.sh.age=Math.max(16,Number($('#shapeAge').value)||25);
+    d.sh.pollock7={
+      peitoral:Number($('#p_peitoral').value)||0,
+      axilar:Number($('#p_axilar').value)||0,
+      triceps:Number($('#p_triceps').value)||0,
+      subescapular:Number($('#p_subescapular').value)||0,
+      suprailiaca:Number($('#p_suprailiaca').value)||0,
+      abdominal:Number($('#p_abdominal').value)||0,
+      coxa:Number($('#p_coxa').value)||0
+    };
+    S.shape.age=d.sh.age;
+    saveState();
+    addXP(28,'train');
+    showToast('Medição de shape salva e integrada.');
+    render();
+  };
+  $('#btnShapeSyncTarget').onclick=()=>{
+    const now=pollock7BodyFat(d.sh.pollock7,d.sh.age,d.sh.sex);
+    S.targets.bfPct=now.bf;
+    saveState();
+    showToast('BF sincronizado com metas globais.');
+    render();
+  };
+}
+
 function viewTestosterona(){
   const h=ensureHormonalToday();
   const t=testosteroneEngine();
@@ -967,7 +1093,7 @@ function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class=
 
 function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' && S.strictMode) beep(140,.09,.08);
   switch(activeTab){
-    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'TESTO': return viewTestosterona();
+    case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'SHAPE': return viewShape(); case 'TESTO': return viewTestosterona();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
     case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
