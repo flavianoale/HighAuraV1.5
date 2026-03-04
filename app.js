@@ -1,18 +1,75 @@
 /* ASCENSÃO OS PRO – offline single-file */
 const APP_VERSION = 5;
 const STORAGE_KEY = 'ascensao_os_state_v5';
-const TOTAL_BIBLE_CHAPTERS = 1189;
+const TOTAL_BIBLE_CHAPTERS = 1334;
 
 const RANKS = [
   {name:'Recruta', min:0},{name:'Soldado', min:500},{name:'Elite', min:2000},
   {name:'Comandante', min:6000},{name:'General', min:15000},{name:'Lenda', min:35000}
 ];
 const BIBLE_PLAN = [
-  {book:'Gênesis', chapters:50},{book:'Êxodo', chapters:40},{book:'Levítico', chapters:27},
-  {book:'Números', chapters:36},{book:'Deuteronômio', chapters:34},{book:'Mateus', chapters:28},
-  {book:'Marcos', chapters:16},{book:'Lucas', chapters:24},{book:'João', chapters:21},{book:'Atos', chapters:28}
+  {book:'Gênesis', chapters:50},{book:'Êxodo', chapters:40},{book:'Levítico', chapters:27},{book:'Números', chapters:36},{book:'Deuteronômio', chapters:34},
+  {book:'Josué', chapters:24},{book:'Juízes', chapters:21},{book:'Rute', chapters:4},{book:'1 Samuel', chapters:31},{book:'2 Samuel', chapters:24},
+  {book:'1 Reis', chapters:22},{book:'2 Reis', chapters:25},{book:'1 Crônicas', chapters:29},{book:'2 Crônicas', chapters:36},{book:'Esdras', chapters:10},
+  {book:'Neemias', chapters:13},{book:'Tobias', chapters:14},{book:'Judite', chapters:16},{book:'Ester', chapters:16},{book:'1 Macabeus', chapters:16},
+  {book:'2 Macabeus', chapters:15},{book:'Jó', chapters:42},{book:'Salmos', chapters:150},{book:'Provérbios', chapters:31},{book:'Eclesiastes', chapters:12},
+  {book:'Cântico dos Cânticos', chapters:8},{book:'Sabedoria', chapters:19},{book:'Eclesiástico', chapters:51},{book:'Isaías', chapters:66},{book:'Jeremias', chapters:52},
+  {book:'Lamentações', chapters:5},{book:'Baruc', chapters:6},{book:'Ezequiel', chapters:48},{book:'Daniel', chapters:14},{book:'Oseias', chapters:14},
+  {book:'Joel', chapters:4},{book:'Amós', chapters:9},{book:'Abdias', chapters:1},{book:'Jonas', chapters:4},{book:'Miqueias', chapters:7},
+  {book:'Naum', chapters:3},{book:'Habacuc', chapters:3},{book:'Sofonias', chapters:3},{book:'Ageu', chapters:2},{book:'Zacarias', chapters:14},
+  {book:'Malaquias', chapters:3},{book:'Mateus', chapters:28},{book:'Marcos', chapters:16},{book:'Lucas', chapters:24},{book:'João', chapters:21},
+  {book:'Atos', chapters:28},{book:'Romanos', chapters:16},{book:'1 Coríntios', chapters:16},{book:'2 Coríntios', chapters:13},{book:'Gálatas', chapters:6},
+  {book:'Efésios', chapters:6},{book:'Filipenses', chapters:4},{book:'Colossenses', chapters:4},{book:'1 Tessalonicenses', chapters:5},{book:'2 Tessalonicenses', chapters:3},
+  {book:'1 Timóteo', chapters:6},{book:'2 Timóteo', chapters:4},{book:'Tito', chapters:3},{book:'Filemom', chapters:1},{book:'Hebreus', chapters:13},
+  {book:'Tiago', chapters:5},{book:'1 Pedro', chapters:5},{book:'2 Pedro', chapters:3},{book:'1 João', chapters:5},{book:'2 João', chapters:1},
+  {book:'3 João', chapters:1},{book:'Judas', chapters:1},{book:'Apocalipse', chapters:22}
 ];
 const FIN_CATS = ['Alimentação','Treino','Higiene','Casa','Carro','Estudos','Projetos','Outros'];
+const TEN_COMMANDMENTS = [
+  'Amar a Deus sobre todas as coisas.',
+  'Não tomar seu santo nome em vão.',
+  'Guardar domingos e festas de guarda.',
+  'Honrar pai e mãe.',
+  'Não matar.',
+  'Não pecar contra a castidade.',
+  'Não roubar.',
+  'Não levantar falso testemunho.',
+  'Não desejar a mulher do próximo.',
+  'Não cobiçar as coisas alheias.'
+];
+const CHURCH_PRECEPTS = [
+  'Participar da Missa inteira nos domingos e dias santos.',
+  'Confessar-se ao menos uma vez por ano.',
+  'Comungar ao menos pela Páscoa da Ressurreição.',
+  'Jejuar e guardar abstinência quando manda a Igreja.',
+  'Ajudar a Igreja em suas necessidades.'
+];
+const EXAMEN_LIST = [
+  'Deixei de rezar e buscar a vontade de Deus no dia?',
+  'Fui negligente na Missa dominical ou cheguei sem devoção?',
+  'Usei o nome de Deus com irreverência, raiva ou piada?',
+  'Desobedeci, tratei mal ou fui ingrato com meus pais/família?',
+  'Guardei raiva, ofendi alguém ou recusei perdão?',
+  'Caí em impureza (olhares, pensamentos, atos ou pornografia)?',
+  'Mentí, manipulei, escondi a verdade ou difamei alguém?',
+  'Fui injusto com dinheiro, trabalho, estudos ou bens dos outros?',
+  'Cometi excessos (comida, bebida, tela, preguiça) sem combate?',
+  'Fui soberbo, vaidoso, invejoso ou busquei aplauso acima de Deus?',
+  'Ignorei alguém necessitado podendo ajudar?',
+  'Adiei uma boa obra por comodismo e tibieza espiritual?'
+];
+const SAINTHOOD_TIPS = [
+  'Comece o dia com oferecimento: “Jesus, tudo por Vós”.',
+  'Reze ao menos 10 min de oração mental + 1 dezena do Rosário.',
+  'Leia o Evangelho do dia e destaque 1 resolução prática.',
+  'Viva com os sacramentos: Missa frequente e Confissão regular.',
+  'Pratique mortificação concreta diária (tela, açúcar, preguiça).',
+  'Treine caridade oculta: servir sem esperar reconhecimento.',
+  'Durma e acorde em horário fixo: disciplina sustenta a santidade.',
+  'Tenha um diretor espiritual ou confessor fixo.',
+  'Faça exame de consciência à noite e anote combate de amanhã.',
+  'Consagração mariana: peça ajuda de Nossa Senhora todos os dias.'
+];
 
 function mkMeal(name, kcal, p, c, g){ return {name,kcal,p,c,g}; }
 const MEALS = {
@@ -113,7 +170,7 @@ const TRAINING_PROGRAMS = {
 
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'SHAPE',label:'Shape'},{id:'TESTO',label:'Testosterona'},
-  {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
+  {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Espiritual'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'MYSTATS',label:'My Stats'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
 
@@ -136,7 +193,8 @@ function defaultState(){
     windows:{wake:'04:40',morningEnd:'07:30',studyStart:'08:30',studyEnd:'11:30',workStart:'12:00',workEnd:'16:00',trainStart:'16:30',trainEnd:'18:30',nightStart:'19:00',sleep:'21:30'},
     targets:{goal:'cutting',weightKg:90,bfPct:25,activity:'moderada',kcal:2500,p:180,c:250,g:70},
     rpg:{xp:0,integrity:100,streak:0,level:1,rank:'Recruta',combo:0},
-    bible:{idx:0,perDay:3}, bibleLog:{}, bibleLogAdv:{},
+    bible:{idx:0,perDay:3,read:{}}, bibleLog:{}, bibleLogAdv:{},
+    spiritual:{exam:{}},
     training:{environment:'home',history:[],program:{track:'home',dayKey:'PUSH',week:1,session:null},naturalMode:true,anthro:{femur:'medio',braco:'medio',torso:'medio'}}, shape:{history:[]}, study:{history:[]},
     diet:{history:[]}, hormonal:{history:[]},
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
@@ -161,7 +219,7 @@ const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
 function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
-function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}}, shape:{...d.shape,...(st.shape||{})} }; }
+function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{}), read:{...d.bible.read,...(st.bible?.read||{})}}, spiritual:{...d.spiritual,...(st.spiritual||{}), exam:{...d.spiritual.exam,...(st.spiritual?.exam||{})}}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}}, shape:{...d.shape,...(st.shape||{})} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
@@ -1340,11 +1398,67 @@ function finishTimer(){ timer.running=false; clearInterval(timerInterval); const
 function updateTimerUI(){ const big=$('#timerBig'), small=$('#timerSmall'), st=$('#timerState'); if(!big) return; big.textContent=fmtMMSS(timer.left||0); st.textContent=timer.running?(timer.paused?'PAUSADO':'RODANDO'):'PARADO'; small.textContent=timer.running?(timer.paused?'Pausado':`Foco: ${timer.topic}`):'Pronto.'; }
 
 function locatePlan(pos){ let p=pos; while(true){ for(const b of BIBLE_PLAN){ if(p<b.chapters) return {book:b.book,chapter:p+1}; p-=b.chapters; } } }
-function nextBibleChapters(i,n){ return Array.from({length:n},(_,x)=>locatePlan(i+x)); }
-function viewBiblia(){ const k=todayKey(), done=!!S.bibleLog[k], per=S.bible.perDay||3, plan=nextBibleChapters(S.bible.idx, per), pct=Math.round(S.bible.idx/TOTAL_BIBLE_CHAPTERS*100); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Bíblia (automático)</div><div class='small'>Hoje ${per} cap. • Progresso ${pct}%</div></div><button class='btn ${done?'danger':'primary'}' id='btnBibleDone'>${done?'DESMARCAR':'MARCAR HOJE'}</button></div><div class='progress'><div style='width:${pct}%'></div></div><div class='list'>${plan.map((p,i)=>`<div class='item'><div><div class='name'>${p.book} ${p.chapter}</div><div class='meta'>Cap ${i+1}/${per}</div></div><span class='badge'>HOJE</span></div>`).join('')}</div><div class='row'><button class='btn' id='btnBiblePerDay'>AJUSTAR/DIA</button><button class='btn danger' id='btnBibleReset'>RESETAR</button></div></div>`;
-  $('#btnBibleDone').onclick=()=>{ if(done){ S.bibleLog[k]=false; if(S.bibleLogAdv[k]){S.bible.idx=Math.max(0,S.bible.idx-per); delete S.bibleLogAdv[k];} adjustIntegrity(-1); } else {S.bibleLog[k]=true; if(!S.bibleLogAdv[k]){S.bible.idx=Math.min(TOTAL_BIBLE_CHAPTERS,S.bible.idx+per); S.bibleLogAdv[k]=true;} addXP(30,'bible'); adjustIntegrity(+2);} saveState(); render();};
-  $('#btnBiblePerDay').onclick=()=>openModal('Capítulos/dia','Ajuste',`<select id='perDaySel'><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select><div class='row'><button class='btn primary' id='savePerDay'>Salvar</button></div>`), setTimeout(()=>{const s=$('#perDaySel'); if(!s) return; s.value=String(S.bible.perDay||3); $('#savePerDay').onclick=()=>{S.bible.perDay=Number(s.value);saveState();closeModal();render();};},0);
-  $('#btnBibleReset').onclick=()=>{S.bible.idx=0; S.bibleLog={}; S.bibleLogAdv={}; adjustIntegrity(-3); saveState(); render();};
+function chapterKey(ch){ return `${ch.book}|${ch.chapter}`; }
+function completedBibleChapters(){ return Object.values(S.bible.read||{}).filter(Boolean).length; }
+function nextBibleChapters(i,n){
+  const list=[];
+  let cursor=i;
+  while(list.length<n && cursor<TOTAL_BIBLE_CHAPTERS){
+    const ch=locatePlan(cursor);
+    if(!S.bible.read?.[chapterKey(ch)]) list.push(ch);
+    cursor++;
+  }
+  return list;
+}
+function syncBibleIndex(){
+  let idx=0;
+  while(idx<TOTAL_BIBLE_CHAPTERS){
+    const ch=locatePlan(idx);
+    if(!S.bible.read?.[chapterKey(ch)]) break;
+    idx++;
+  }
+  S.bible.idx=idx;
+}
+function viewBiblia(){
+  const per=S.bible.perDay||3;
+  const doneChapters=completedBibleChapters();
+  const pct=Math.round(doneChapters/TOTAL_BIBLE_CHAPTERS*100);
+  const plan=nextBibleChapters(S.bible.idx, Math.max(3, per*2));
+  const examMarks=S.spiritual?.exam||{};
+  const sinsCount=Object.values(examMarks).filter(Boolean).length;
+
+  view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Espiritual Católico</div><div class='small'>Bíblia católica (73 livros) • ${doneChapters}/${TOTAL_BIBLE_CHAPTERS} capítulos</div></div><span class='badge'>Progresso ${pct}%</span></div><div class='progress'><div style='width:${pct}%'></div></div><div class='hint'>Cada capítulo marcado como lido some da lista abaixo.</div><div class='row'><button class='btn' id='btnBiblePerDay'>Meta diária: ${per} cap.</button><button class='btn danger' id='btnBibleReset'>Reset leitura</button></div></div>
+  <div class='card'><h2>Plano de leitura (Bíblia Católica)</h2><div class='list'>${plan.length?plan.map((p)=>`<div class='item'><div><div class='name'>${p.book} ${p.chapter}</div><div class='meta'>Capítulo pendente</div></div><button class='btn primary' data-read='${chapterKey(p)}'>LIDO</button></div>`).join(''):'<div class="hint">Parabéns, Bíblia concluída! 🙏</div>'}</div></div>
+  <div class='card'><h2>10 Mandamentos</h2><div class='list'>${TEN_COMMANDMENTS.map((x,i)=>`<div class='item'><div><div class='name'>${i+1}º Mandamento</div><div class='meta'>${x}</div></div></div>`).join('')}</div></div>
+  <div class='card'><h2>Mandamentos da Igreja</h2><div class='list'>${CHURCH_PRECEPTS.map((x,i)=>`<div class='item'><div><div class='name'>Preceito ${i+1}</div><div class='meta'>${x}</div></div></div>`).join('')}</div></div>
+  <div class='card'><div class='kpi'><h2>Exame de consciência</h2><span class='badge'>${sinsCount} faltas marcadas</span></div><div class='hint'>Marque com sinceridade. Pecado marcado perde integridade e XP.</div><div class='list'>${EXAMEN_LIST.map((q,i)=>`<label class='item checkline ${examMarks[i]?'sin-marked':''}'><div><div class='name'>${q}</div><div class='meta'>Se marcou, faça propósito de emenda + confissão.</div></div><input type='checkbox' data-sin='${i}' ${examMarks[i]?'checked':''}></label>`).join('')}</div><div class='row'><button class='btn danger' id='btnClearExam'>LIMPAR EXAME</button></div></div>
+  <div class='card'><h2>Dicas práticas para buscar santidade</h2><div class='list'>${SAINTHOOD_TIPS.map((t,i)=>`<div class='item'><div><div class='name'>Disciplina ${i+1}</div><div class='meta'>${t}</div></div></div>`).join('')}</div></div>`;
+
+  view.querySelectorAll('[data-read]').forEach((b)=>b.onclick=()=>{
+    const key=b.dataset.read;
+    if(!key) return;
+    S.bible.read[key]=true;
+    S.bibleLog[todayKey()]=true;
+    syncBibleIndex();
+    addXP(14,'bible');
+    adjustIntegrity(+1);
+    saveState();
+    render();
+  });
+
+  view.querySelectorAll('[data-sin]').forEach((box)=>box.onchange=()=>{
+    const idx=Number(box.dataset.sin);
+    const checked=!!box.checked;
+    S.spiritual.exam[idx]=checked;
+    if(checked){ addXP(-12,'bible'); adjustIntegrity(-4); }
+    else { addXP(6,'bible'); adjustIntegrity(+1); }
+    saveState();
+    render();
+  });
+
+  $('#btnClearExam').onclick=()=>{ S.spiritual.exam={}; adjustIntegrity(+2); saveState(); render(); };
+  $('#btnBiblePerDay').onclick=()=>openModal('Capítulos/dia','Ajuste',`<select id='perDaySel'><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>8</option></select><div class='row'><button class='btn primary' id='savePerDay'>Salvar</button></div>`), setTimeout(()=>{const s=$('#perDaySel'); if(!s) return; s.value=String(S.bible.perDay||3); $('#savePerDay').onclick=()=>{S.bible.perDay=Number(s.value);saveState();closeModal();render();};},0);
+  $('#btnBibleReset').onclick=()=>{S.bible.idx=0; S.bible.read={}; S.bibleLog={}; S.bibleLogAdv={}; adjustIntegrity(-3); saveState(); render();};
 }
 
 function viewTasks(){ const k=todayKey(); const tasks=(S.tasks.byDate[k]||[]).sort((a,b)=>a.time.localeCompare(b.time)); view.innerHTML=`<div class='card'><h2>Tarefas com horário</h2><div class='grid'><div class='g6'><label>Título</label><input id='taskTitle' placeholder='Ex: Revisar genética'></div><div class='g6'><label>Horário</label><input id='taskTime' type='time'></div><div class='g6'><label>Categoria</label><select id='taskCat'><option>Estudo</option><option>Treino</option><option>Espiritual</option><option>Projeto</option><option>Social</option><option>Financeiro</option></select></div><div class='g6'><label>Duração (min)</label><select id='taskDur'><option>15</option><option>25</option><option>40</option><option>60</option><option>90</option></select></div><div class='g12'><button class='btn primary wide' id='btnTaskAdd'>ADICIONAR</button></div></div></div><div class='card'><h2>Lista de hoje</h2><div class='list'>${tasks.length?tasks.map((t,i)=>`<div class='item'><div><div class='name'>${t.time} • ${t.title}</div><div class='meta'>${t.cat} • ${t.dur}min</div></div><div class='row'><button class='btn' data-taskdone='${i}'>FEITO</button><button class='btn danger' data-taskdel='${i}'>APAGAR</button></div></div>`).join(''):'<div class="hint">Sem tarefas.</div>'}</div></div>`;
