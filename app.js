@@ -671,15 +671,58 @@ function viewMyStats(){
     {label:'Respeito',v:respeito},
     {label:'Financeiro',v:financeiro}
   ];
+
+  const shapeHistory=(S.shape.history||[]).slice(-14);
+  const shapeByDate=Object.fromEntries(shapeHistory.map(x=>[x.date,x]));
+  const trainByDate={};
+  (S.training.history||[]).forEach(x=>{ trainByDate[x.date]=(trainByDate[x.date]||0)+1; });
+  const studyByDate={};
+  (S.study.history||[]).forEach(x=>{ studyByDate[x.date]=(studyByDate[x.date]||0)+(Number(x.minutes)||0); });
+  const opsByDate={};
+  (S.ops.history||[]).forEach(x=>{ opsByDate[x.date]=(opsByDate[x.date]||0)+(Number(x.minutes)||0); });
+  const socialByDate={};
+  (S.social.history||[]).forEach(x=>{ socialByDate[x.date]=(socialByDate[x.date]||0)+1; });
+  const financeByDate={};
+  (S.finance.history||[]).forEach(x=>{ financeByDate[x.date]=(financeByDate[x.date]||0)+(Number(x.amount)||0); });
+
+  const areaTrends={
+    shape: keys14.map(k=>{
+      const raw=shapeByDate[k];
+      const bf=raw?pollock7BodyFat(raw.pollock7||{}, raw.age||25, raw.sex||'male').bf:S.targets.bfPct;
+      const v=Math.round(Math.max(0,Math.min(100, 100-(bf*2.1))));
+      return {label:k.slice(5),v};
+    }),
+    hormonal: keys14.map(k=>{
+      const h=(S.hormonal.history||[]).find(x=>x.date===k);
+      const sleep=Math.min(100,((Number(h?.sleepHours)||7.5)/8)*55 + (Number(h?.sleepQuality)||75)*0.45);
+      const stress=100-(Number(h?.stress)||45);
+      const recovery=Number(h?.recovery)||70;
+      return {label:k.slice(5),v:Math.round((sleep*0.45)+(stress*0.25)+(recovery*0.3))};
+    }),
+    treino: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,(trainByDate[k]||0)*24 + 28))})),
+    estudo: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,((studyByDate[k]||0)/120)*100))})),
+    agronomia: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,((opsByDate[k]||0)/120)*100))})),
+    espiritual: keys14.map(k=>{
+      const p=protoByDate[k];
+      const protoPct=p?Math.round((((p.morningDone||[]).length/Math.max(1,S.proto.itemsMorning.length) + ((p.nightDone||[]).length/Math.max(1,S.proto.itemsNight.length))/1)/2)*100):0;
+      const bible=S.bibleLog[k]?100:0;
+      return {label:k.slice(5),v:Math.round(protoPct*0.65 + bible*0.35)};
+    }),
+    filosofia: discipline14,
+    social: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,(socialByDate[k]||0)*34))})),
+    respeito: keys14.map(k=>{
+      const s=Math.round(Math.min(100,(socialByDate[k]||0)*34));
+      const f=(diaryByDate[k]?.focus?Math.round((Number(diaryByDate[k].focus)/5)*100):60);
+      const e=(S.bibleLog[k]?100:40);
+      return {label:k.slice(5),v:Math.round((s*0.45)+(f*0.35)+(e*0.2))};
+    }),
+    financeiro: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.max(25,100-Math.min(100,((financeByDate[k]||0)/180)*100)))}))
+  };
+
   const overall=Math.round(avg(areaItems.map(x=>x.v)));
   const evolution=keys14.map((k,i)=>{
-    const d=discipline14[i].v;
-    const s=study7[keys7.indexOf(k)]||0;
-    const o=ops7[keys7.indexOf(k)]||0;
-    const so=social7[keys7.indexOf(k)]||0;
-    const sp=(proto7[keys7.indexOf(k)]||0);
-    const score=Math.round(d*0.35 + Math.min(100,s/120*100)*0.2 + Math.min(100,o/120*100)*0.15 + Math.min(100,so/3*100)*0.15 + sp*0.15);
-    return {label:k.slice(5),v:score};
+    const vals=[areaTrends.shape[i].v,areaTrends.hormonal[i].v,areaTrends.treino[i].v,areaTrends.estudo[i].v,areaTrends.agronomia[i].v,areaTrends.espiritual[i].v,areaTrends.filosofia[i].v,areaTrends.social[i].v,areaTrends.respeito[i].v,areaTrends.financeiro[i].v];
+    return {label:k.slice(5),v:Math.round(avg(vals))};
   });
 
   const top3=[...areaItems].sort((a,b)=>b.v-a.v).slice(0,3);
@@ -692,6 +735,19 @@ function viewMyStats(){
     'Para ser respeitado: consistência, competência e serviço. Reputação vem de evidência repetida no tempo.'
   ];
 
+  const chartDefs=[
+    {k:'shape',title:'Shape (principal)',color:'#00ff8c',bg:'rgba(0,255,140,.08)'},
+    {k:'hormonal',title:'Hormonal',color:'#7ad7ff',bg:'rgba(122,215,255,.08)'},
+    {k:'treino',title:'Treino',color:'#ffcf5a',bg:'rgba(255,207,90,.08)'},
+    {k:'estudo',title:'Estudo',color:'#ffe45c',bg:'rgba(255,228,92,.08)'},
+    {k:'agronomia',title:'Agronomia/Projetos',color:'#9dff7a',bg:'rgba(157,255,122,.08)'},
+    {k:'espiritual',title:'Espiritual',color:'#d9a5ff',bg:'rgba(217,165,255,.08)'},
+    {k:'filosofia',title:'Filosofia/Disciplina',color:'#8fffd7',bg:'rgba(143,255,215,.08)'},
+    {k:'social',title:'Social',color:'#ffb86a',bg:'rgba(255,184,106,.08)'},
+    {k:'respeito',title:'Respeito',color:'#ff8cc6',bg:'rgba(255,140,198,.08)'},
+    {k:'financeiro',title:'Financeiro',color:'#ff7f9f',bg:'rgba(255,127,159,.08)'}
+  ];
+
   view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>My Stats</div><div class='small'>Painel completo: evolução, comparação e status de todas as áreas</div></div><span class='badge'>Score geral ${overall}/100</span></div>
     <div class='grid'>
       <div class='g6'><div class='item'><div><div class='name'>Shape atual</div><div class='meta'>${shape.status}</div></div><span class='badge'>${shape.shapeScore}</span></div></div>
@@ -702,13 +758,10 @@ function viewMyStats(){
   </div>
   <div class='card'><h2>Status geral por área (radar)</h2><div class='radar-wrap'>${radarChartSVG(areaItems.slice(0,8),{size:340})}</div></div>
   <div class='card'><h2>Comparação detalhada de áreas</h2>${barChartSVG(areaItems,{w:640,h:250})}</div>
-  <div class='card'><h2>Evolução dos últimos 14 dias</h2>${lineChartSVG(evolution,{color:'#7ad7ff',bg:'rgba(122,215,255,0.08)'})}</div>
-  <div class='grid'>
-    <div class='g6 card'><h2>Estudo (min/dia)</h2>${lineChartSVG(keys7.map((k,i)=>({label:k.slice(5),v:study7[i]}),{color:'#ffe45c',bg:'rgba(255,228,92,0.08)',unit:' min'}))}</div>
-    <div class='g6 card'><h2>Projetos/Agronomia (min/dia)</h2>${lineChartSVG(keys7.map((k,i)=>({label:k.slice(5),v:ops7[i]}),{color:'#9dff7a',bg:'rgba(157,255,122,0.08)',unit:' min'}))}</div>
-    <div class='g6 card'><h2>Social (interações/dia)</h2>${lineChartSVG(keys7.map((k,i)=>({label:k.slice(5),v:social7[i]}),{color:'#ffb86a',bg:'rgba(255,184,106,0.08)'}))}</div>
-    <div class='g6 card'><h2>Financeiro (R$/dia)</h2>${lineChartSVG(keys7.map((k,i)=>({label:k.slice(5),v:finance7[i]}),{color:'#ff7f9f',bg:'rgba(255,127,159,0.08)',unit:' R$',decimals:2}))}</div>
-  </div>
+  <div class='card'><h2>Evolução composta (10 áreas, 14 dias)</h2>${lineChartSVG(evolution,{color:'#7ad7ff',bg:'rgba(122,215,255,0.08)'})}</div>
+  <div class='card'><h2>Evolução por área (14 dias) — destaque para Shape</h2><div class='grid'>
+    ${chartDefs.map(c=>`<div class='g6'><div class='item'><div><div class='name'>${c.title}</div><div class='meta'>Último score: ${areaTrends[c.k].at(-1)?.v||0}</div></div><span class='badge'>${c.k==='shape'?'PRIORIDADE':''}</span></div>${lineChartSVG(areaTrends[c.k],{color:c.color,bg:c.bg})}</div>`).join('')}
+  </div></div>
   <div class='card'><h2>Forças atuais</h2><div class='list'>${top3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Ponto forte do seu projeto de vida</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
   <div class='card'><h2>Prioridades de melhoria</h2><div class='list'>${bottom3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Área com maior retorno de evolução</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
   <div class='card'><h2>Guia científico para virar sua melhor versão</h2><div class='list'>${scienceTips.map((t,i)=>`<div class='item'><div><div class='name'>${i+1}. Protocolo</div><div class='meta'>${t}</div></div><span class='badge'>SCI</span></div>`).join('')}</div><div class='hint'>Foco: fisiculturista natural, agrônomo de excelência, homem de honra, santo e filósofo com base em disciplina diária.</div></div>`;
