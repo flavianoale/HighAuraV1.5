@@ -114,7 +114,7 @@ const TRAINING_PROGRAMS = {
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'SHAPE',label:'Shape'},{id:'TESTO',label:'Testosterona'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
-  {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
+  {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'MYSTATS',label:'My Stats'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
 
 const idb = {
@@ -310,7 +310,7 @@ function playTabClickSound(){
   }
   beep(760,.03,.05);
 }
-function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; playTabClickSound(); render(); }; tabs.appendChild(b);} }
+function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL','MYSTATS']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; playTabClickSound(); render(); }; tabs.appendChild(b);} }
 
 function pressurePanelHTML(){ const win=currentWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${timeLeftInWindow(win)}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
 
@@ -556,7 +556,7 @@ function rollingRisk(days=3){
   return {hardDef,lowSleep,days,isChronic:(hardDef>=2 || lowSleep>=2)};
 }
 
-function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.08)',unit='',decimals=0}={}){
+function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.08)',unit='',decimals=0,showValues=false}={}){
   const vals=(points||[]).map(p=>Number(p.v)||0);
   if(!vals.length) return '';
   const min=Math.min(...vals);
@@ -568,13 +568,230 @@ function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.0
   const pts=points.map((p,i)=>`${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const last=points.at(-1);
   const labels=points.map((p,i)=>`<text x='${x(i).toFixed(1)}' y='${h-4}' text-anchor='middle' fill='#9adfbe' font-size='10'>${p.label}</text>`).join('');
+  const yTicks=[0,25,50,75,100].map(v=>`<text x='6' y='${(y(v)).toFixed(1)}' fill='rgba(182,231,208,.65)' font-size='9'>${v}</text><line x1='18' y1='${(y(v)).toFixed(1)}' x2='${(w-18)}' y2='${(y(v)).toFixed(1)}' stroke='rgba(182,231,208,.08)'/>`).join('');
   return `<svg viewBox='0 0 ${w} ${h}' class='trend-chart' role='img' aria-label='Gráfico de projeção'>
     <rect x='1' y='1' width='${w-2}' height='${h-2}' rx='12' fill='${bg}' stroke='rgba(0,255,140,.35)'/>
+    ${yTicks}
     <polyline fill='none' stroke='${color}' stroke-width='3' points='${pts}'/>
     ${points.map((p,i)=>`<circle cx='${x(i).toFixed(1)}' cy='${y(p.v).toFixed(1)}' r='3.6' fill='${color}'/>`).join('')}
+    ${showValues?points.map((p,i)=>`<text x='${x(i).toFixed(1)}' y='${Math.max(12,y(p.v)-8).toFixed(1)}' text-anchor='middle' fill='${color}' font-size='10'>${(Number(p.v)||0).toFixed(decimals)}</text>`).join(''):''}
     <text x='${w-12}' y='18' text-anchor='end' fill='${color}' font-size='12'>${(Number(last.v)||0).toFixed(decimals)}${unit}</text>
+    <text x='${w-12}' y='32' text-anchor='end' fill='rgba(182,231,208,.75)' font-size='10'>escala 0-100</text>
     ${labels}
   </svg>`;
+}
+
+function barChartSVG(items,{w=560,h=220}={}){
+  const vals=items.map(x=>Math.max(0,Math.min(100,Number(x.v)||0)));
+  if(!vals.length) return '';
+  const padX=24,padTop=20,padBottom=52;
+  const ih=h-padTop-padBottom;
+  const slot=(w-padX*2)/vals.length;
+  return `<svg viewBox='0 0 ${w} ${h}' class='trend-chart' role='img' aria-label='Comparação por áreas'>
+    <rect x='1' y='1' width='${w-2}' height='${h-2}' rx='12' fill='rgba(90,110,255,0.06)' stroke='rgba(90,110,255,0.35)'/>
+    <text x='${w-12}' y='16' text-anchor='end' fill='rgba(182,231,208,.75)' font-size='10'>escala 0-100</text>
+    ${items.map((p,i)=>{
+      const x=padX+i*slot+slot*0.18;
+      const bw=slot*0.64;
+      const bh=(vals[i]/100)*ih;
+      const y=padTop+ih-bh;
+      const color=vals[i]>=75?'#00ff8c':vals[i]>=55?'#b7ff48':'#ffcf5a';
+      const label=(p.label||'').slice(0,8);
+      return `<rect x='${x.toFixed(1)}' y='${y.toFixed(1)}' width='${bw.toFixed(1)}' height='${bh.toFixed(1)}' rx='8' fill='${color}' opacity='0.85'/>
+      <text x='${(x+bw/2).toFixed(1)}' y='${(h-30).toFixed(1)}' text-anchor='middle' fill='#b6e7d0' font-size='11'>${label}</text>
+      <text x='${(x+bw/2).toFixed(1)}' y='${Math.max(16,y-6).toFixed(1)}' text-anchor='middle' fill='${color}' font-size='11'>${vals[i]}</text>`;
+    }).join('')}
+  </svg>`;
+}
+
+function radarChartSVG(items,{size=320}={}){
+  if(!items.length) return '';
+  const c=size/2;
+  const r=size*0.36;
+  const step=(Math.PI*2)/items.length;
+  const axisPts=items.map((_,i)=>({x:c+Math.cos(-Math.PI/2+i*step)*r,y:c+Math.sin(-Math.PI/2+i*step)*r}));
+  const valPts=items.map((it,i)=>{
+    const pct=Math.max(0,Math.min(100,Number(it.v)||0))/100;
+    return {x:c+Math.cos(-Math.PI/2+i*step)*r*pct,y:c+Math.sin(-Math.PI/2+i*step)*r*pct};
+  });
+  return `<svg viewBox='0 0 ${size} ${size}' class='radar-chart' role='img' aria-label='Radar de status geral'>
+    <circle cx='${c}' cy='${c}' r='${r}' fill='rgba(0,255,140,0.05)' stroke='rgba(0,255,140,0.3)'/>
+    <circle cx='${c}' cy='${c}' r='${(r*0.66).toFixed(1)}' fill='none' stroke='rgba(0,255,140,0.2)'/>
+    <circle cx='${c}' cy='${c}' r='${(r*0.33).toFixed(1)}' fill='none' stroke='rgba(0,255,140,0.15)'/>
+    ${axisPts.map(p=>`<line x1='${c}' y1='${c}' x2='${p.x.toFixed(1)}' y2='${p.y.toFixed(1)}' stroke='rgba(0,255,140,0.2)'/>`).join('')}
+    <polygon points='${valPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}' fill='rgba(0,255,140,0.28)' stroke='#00ff8c' stroke-width='2'/>
+    ${items.map((it,i)=>{
+      const p=axisPts[i];
+      const tx=c+Math.cos(-Math.PI/2+i*step)*(r+24);
+      const ty=c+Math.sin(-Math.PI/2+i*step)*(r+24);
+      return `<text x='${tx.toFixed(1)}' y='${ty.toFixed(1)}' text-anchor='middle' fill='#b6e7d0' font-size='10'>${it.label.slice(0,10)}</text>
+      <circle cx='${valPts[i].x.toFixed(1)}' cy='${valPts[i].y.toFixed(1)}' r='3' fill='#00ff8c'/>`;
+    }).join('')}
+  </svg>`;
+}
+
+function dayKeys(n=7){
+  return Array.from({length:n},(_,i)=>todayKey(new Date(Date.now()-((n-1-i)*86400000))));
+}
+
+function viewMyStats(){
+  const keys7=dayKeys(7), keys14=dayKeys(14);
+  const shape=shapeIntelligence();
+  const testo=testosteroneEngine();
+  const train=trainingAnalytics();
+  const study7=keys7.map(k=>S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+(Number(b.minutes)||0),0));
+  const ops7=keys7.map(k=>S.ops.history.filter(x=>x.date===k).reduce((a,b)=>a+(Number(b.minutes)||0),0));
+  const social7=keys7.map(k=>S.social.history.filter(x=>x.date===k).length);
+  const finance7=keys7.map(k=>S.finance.history.filter(x=>x.date===k).reduce((a,b)=>a+(Number(b.amount)||0),0));
+  const bible7=keys7.map(k=>S.bibleLog[k]?1:0);
+  const protoByDate=Object.fromEntries((S.proto.history||[]).map(x=>[x.date,x]));
+  const proto7=keys7.map((k)=>{ const p=protoByDate[k]; if(!p) return 0; const m=(p.morningDone||[]).length/Math.max(1,S.proto.itemsMorning.length); const n=(p.nightDone||[]).length/Math.max(1,S.proto.itemsNight.length); return Math.round(((m+n)/2)*100); });
+  const diaryByDate=Object.fromEntries((S.diary.history||[]).map(x=>[x.date,x]));
+  const discipline14=keys14.map(k=>{
+    const d=diaryByDate[k];
+    const focus=(Number(d?.focus)||3)/5*100;
+    const mood=(Number(d?.mood)||3)/5*100;
+    const energy=(Number(d?.energy)||3)/5*100;
+    return {label:k.slice(5),v:Math.round((focus*0.5)+(energy*0.3)+(mood*0.2))};
+  });
+
+  const avg=(arr)=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
+  const espiritual=Math.round(avg(proto7)*0.65 + (avg(bible7)*100)*0.35);
+  const estudo=Math.round(Math.min(100,(avg(study7)/120)*100));
+  const social=Math.round(Math.min(100,(avg(social7)/3)*100));
+  const agro=Math.round(Math.min(100,(avg(ops7)/120)*100));
+  const financeiro=Math.round(Math.max(25,100-Math.min(100,(avg(finance7)/180)*100)));
+  const filosofia=Math.round(avg(discipline14.map(x=>x.v)));
+  const respeito=Math.round(Math.max(35,Math.min(100,(social*0.5)+(filosofia*0.3)+(espiritual*0.2))));
+
+  const areaItems=[
+    {label:'Fisiculturismo',v:shape.shapeScore},
+    {label:'Hormonal',v:testo.score},
+    {label:'Treino',v:train.globalPerf},
+    {label:'Estudo',v:estudo},
+    {label:'Agronomia',v:agro},
+    {label:'Espiritual',v:espiritual},
+    {label:'Filosofia',v:filosofia},
+    {label:'Social',v:social},
+    {label:'Respeito',v:respeito},
+    {label:'Financeiro',v:financeiro}
+  ];
+
+  const shapeHistory=(S.shape.history||[]).slice(-14);
+  const shapeByDate=Object.fromEntries(shapeHistory.map(x=>[x.date,x]));
+  const trainByDate={};
+  (S.training.history||[]).forEach(x=>{ trainByDate[x.date]=(trainByDate[x.date]||0)+1; });
+  const studyByDate={};
+  (S.study.history||[]).forEach(x=>{ studyByDate[x.date]=(studyByDate[x.date]||0)+(Number(x.minutes)||0); });
+  const opsByDate={};
+  (S.ops.history||[]).forEach(x=>{ opsByDate[x.date]=(opsByDate[x.date]||0)+(Number(x.minutes)||0); });
+  const socialByDate={};
+  (S.social.history||[]).forEach(x=>{ socialByDate[x.date]=(socialByDate[x.date]||0)+1; });
+  const financeByDate={};
+  (S.finance.history||[]).forEach(x=>{ financeByDate[x.date]=(financeByDate[x.date]||0)+(Number(x.amount)||0); });
+
+  const areaTrends={
+    shape: keys14.map(k=>{
+      const raw=shapeByDate[k];
+      const bf=raw?pollock7BodyFat(raw.pollock7||{}, raw.age||25, raw.sex||'male').bf:S.targets.bfPct;
+      const v=Math.round(Math.max(0,Math.min(100, 100-(bf*2.1))));
+      return {label:k.slice(5),v};
+    }),
+    hormonal: keys14.map(k=>{
+      const h=(S.hormonal.history||[]).find(x=>x.date===k);
+      const sleep=Math.min(100,((Number(h?.sleepHours)||7.5)/8)*55 + (Number(h?.sleepQuality)||75)*0.45);
+      const stress=100-(Number(h?.stress)||45);
+      const recovery=Number(h?.recovery)||70;
+      return {label:k.slice(5),v:Math.round((sleep*0.45)+(stress*0.25)+(recovery*0.3))};
+    }),
+    treino: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,(trainByDate[k]||0)*24 + 28))})),
+    estudo: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,((studyByDate[k]||0)/120)*100))})),
+    agronomia: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,((opsByDate[k]||0)/120)*100))})),
+    espiritual: keys14.map(k=>{
+      const p=protoByDate[k];
+      const protoPct=p?Math.round((((p.morningDone||[]).length/Math.max(1,S.proto.itemsMorning.length) + ((p.nightDone||[]).length/Math.max(1,S.proto.itemsNight.length))/1)/2)*100):0;
+      const bible=S.bibleLog[k]?100:0;
+      return {label:k.slice(5),v:Math.round(protoPct*0.65 + bible*0.35)};
+    }),
+    filosofia: discipline14,
+    social: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.min(100,(socialByDate[k]||0)*34))})),
+    respeito: keys14.map(k=>{
+      const s=Math.round(Math.min(100,(socialByDate[k]||0)*34));
+      const f=(diaryByDate[k]?.focus?Math.round((Number(diaryByDate[k].focus)/5)*100):60);
+      const e=(S.bibleLog[k]?100:40);
+      return {label:k.slice(5),v:Math.round((s*0.45)+(f*0.35)+(e*0.2))};
+    }),
+    financeiro: keys14.map(k=>({label:k.slice(5),v:Math.round(Math.max(25,100-Math.min(100,((financeByDate[k]||0)/180)*100)))}))
+  };
+
+  const overall=Math.round(avg(areaItems.map(x=>x.v)));
+  const evolution=keys14.map((k,i)=>{
+    const vals=[areaTrends.shape[i].v,areaTrends.hormonal[i].v,areaTrends.treino[i].v,areaTrends.estudo[i].v,areaTrends.agronomia[i].v,areaTrends.espiritual[i].v,areaTrends.filosofia[i].v,areaTrends.social[i].v,areaTrends.respeito[i].v,areaTrends.financeiro[i].v];
+    return {label:k.slice(5),v:Math.round(avg(vals))};
+  });
+
+  const top3=[...areaItems].sort((a,b)=>b.v-a.v).slice(0,3);
+  const bottom3=[...areaItems].sort((a,b)=>a.v-b.v).slice(0,3);
+  const scienceTips=[
+    'Hipertrofia natural: 10-20 séries por grupo muscular/semana com progressão de carga e 1,6-2,2 g/kg de proteína.',
+    'Sono de 7h30-9h aumenta recuperação, regulação hormonal e consolidação de memória (treino + estudo).',
+    'Blocos de estudo focado de 50-90 min com revisão espaçada melhoram retenção de longo prazo.',
+    'Prática espiritual diária com reflexão + diário reduz estresse e aumenta autocontrole comportamental.',
+    'Para ser respeitado: consistência, competência e serviço. Reputação vem de evidência repetida no tempo.'
+  ];
+
+  const scoreMeaning=[
+    {range:'0-39',meaning:'Crítico: área travada, precisa intervenção imediata.'},
+    {range:'40-59',meaning:'Baixo: progresso inconsistente.'},
+    {range:'60-79',meaning:'Bom: evolução real, mas com gaps.'},
+    {range:'80-100',meaning:'Elite: execução forte e consistente.'}
+  ];
+
+  const areaExplain=[
+    {n:'Shape',m:'Score 0-100 baseado no BF estimado (Pollock) e estado físico atual.'},
+    {n:'Hormonal',m:'Combina sono, qualidade do sono, estresse e recuperação do dia.'},
+    {n:'Treino',m:'Volume/frequência diária convertidos para score (0-100).'},
+    {n:'Estudo',m:'Minutos de estudo por dia em relação à meta de 120min.'},
+    {n:'Agronomia/Projetos',m:'Minutos de execução em campo/projetos por dia.'},
+    {n:'Espiritual',m:'Protocolo matinal/noturno + leitura bíblica diária.'},
+    {n:'Filosofia/Disciplina',m:'Foco + energia + humor do diário, em escala comportamental.'},
+    {n:'Social',m:'Interações sociais diárias convertidas para score.'},
+    {n:'Respeito',m:'Composto de social + foco + consistência espiritual.'},
+    {n:'Financeiro',m:'Eficiência do gasto diário (menos gasto desnecessário = score maior).'}
+  ];
+
+  const chartDefs=[
+    {k:'shape',title:'Shape (principal)',color:'#00ff8c',bg:'rgba(0,255,140,.08)'},
+    {k:'hormonal',title:'Hormonal',color:'#7ad7ff',bg:'rgba(122,215,255,.08)'},
+    {k:'treino',title:'Treino',color:'#ffcf5a',bg:'rgba(255,207,90,.08)'},
+    {k:'estudo',title:'Estudo',color:'#ffe45c',bg:'rgba(255,228,92,.08)'},
+    {k:'agronomia',title:'Agronomia/Projetos',color:'#9dff7a',bg:'rgba(157,255,122,.08)'},
+    {k:'espiritual',title:'Espiritual',color:'#d9a5ff',bg:'rgba(217,165,255,.08)'},
+    {k:'filosofia',title:'Filosofia/Disciplina',color:'#8fffd7',bg:'rgba(143,255,215,.08)'},
+    {k:'social',title:'Social',color:'#ffb86a',bg:'rgba(255,184,106,.08)'},
+    {k:'respeito',title:'Respeito',color:'#ff8cc6',bg:'rgba(255,140,198,.08)'},
+    {k:'financeiro',title:'Financeiro',color:'#ff7f9f',bg:'rgba(255,127,159,.08)'}
+  ];
+
+  view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>My Stats</div><div class='small'>Painel completo: evolução, comparação e status de todas as áreas</div></div><span class='badge'>Score geral ${overall}/100</span></div>
+    <div class='grid'>
+      <div class='g6'><div class='item'><div><div class='name'>Shape atual</div><div class='meta'>${shape.status}</div></div><span class='badge'>${shape.shapeScore}</span></div></div>
+      <div class='g6'><div class='item'><div><div class='name'>Potência hormonal</div><div class='meta'>Testosterona natural</div></div><span class='badge'>${testo.score}</span></div></div>
+      <div class='g6'><div class='item'><div><div class='name'>Disciplina</div><div class='meta'>Foco + humor + energia</div></div><span class='badge'>${filosofia}</span></div></div>
+      <div class='g6'><div class='item'><div><div class='name'>Respeito social</div><div class='meta'>Presença + reputação</div></div><span class='badge'>${respeito}</span></div></div>
+    </div>
+  </div>
+  <div class='card'><h2>Como ler os gráficos (importante)</h2><div class='list'>${scoreMeaning.map(x=>`<div class='item'><div><div class='name'>Faixa ${x.range}</div><div class='meta'>${x.meaning}</div></div><span class='badge'>0-100</span></div>`).join('')}</div><div class='hint'>Todos os gráficos usam escala de 0 a 100. Quanto maior, melhor. Eixo X = dias recentes.</div></div>
+  <div class='card'><h2>Status geral por área (radar)</h2><div class='hint'>Cada ponta é uma área da vida. Quanto mais perto da borda, melhor seu nível naquela área.</div><div class='radar-wrap'>${radarChartSVG(areaItems.slice(0,8),{size:340})}</div></div>
+  <div class='card'><h2>Comparação detalhada de áreas</h2><div class='hint'>Barras mostram seu score atual por área (0-100). Número em cima da barra = valor atual.</div>${barChartSVG(areaItems,{w:640,h:250})}</div>
+  <div class='card'><h2>Evolução composta (10 áreas, 14 dias)</h2><div class='hint'>Linha azul = média diária das 10 áreas. Serve para ver se sua vida como um todo está subindo ou caindo.</div>${lineChartSVG(evolution,{color:'#7ad7ff',bg:'rgba(122,215,255,0.08)',showValues:true})}</div>
+  <div class='card'><h2>Evolução por área (14 dias) — destaque para Shape</h2><div class='grid'>
+    ${chartDefs.map(c=>`<div class='g6'><div class='item'><div><div class='name'>${c.title}</div><div class='meta'>Último score: ${areaTrends[c.k].at(-1)?.v||0} • 14d média: ${Math.round(avg(areaTrends[c.k].map(p=>p.v)))}</div></div><span class='badge'>${c.k==='shape'?'PRIORIDADE':''}</span></div>${lineChartSVG(areaTrends[c.k],{color:c.color,bg:c.bg,showValues:true})}</div>`).join('')}
+  </div></div>
+  <div class='card'><h2>O que cada área mede</h2><div class='list'>${areaExplain.map(x=>`<div class='item'><div><div class='name'>${x.n}</div><div class='meta'>${x.m}</div></div><span class='badge'>MÉTRICA</span></div>`).join('')}</div></div>
+  <div class='card'><h2>Forças atuais</h2><div class='list'>${top3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Ponto forte do seu projeto de vida</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
+  <div class='card'><h2>Prioridades de melhoria</h2><div class='list'>${bottom3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Área com maior retorno de evolução</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
+  <div class='card'><h2>Guia científico para virar sua melhor versão</h2><div class='list'>${scienceTips.map((t,i)=>`<div class='item'><div><div class='name'>${i+1}. Protocolo</div><div class='meta'>${t}</div></div><span class='badge'>SCI</span></div>`).join('')}</div><div class='hint'>Foco: fisiculturista natural, agrônomo de excelência, homem de honra, santo e filósofo com base em disciplina diária.</div></div>`;
 }
 
 function estimateTestosteroneProjection(t){
@@ -1189,7 +1406,7 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
   switch(activeTab){
     case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'SHAPE': return viewShape(); case 'TESTO': return viewTestosterona();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
-    case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
+    case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'MYSTATS': return viewMyStats(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
   }
 }
