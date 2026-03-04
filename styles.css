@@ -31,6 +31,11 @@ header{position:sticky;top:0;z-index:9;background:#030806f0;border-bottom:1px so
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .list{display:grid;gap:8px}
 .item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #0a5134;border-radius:12px;padding:8px}
+
+.checkline{cursor:pointer}
+.checkline input[type=checkbox]{width:auto;min-width:20px;height:20px;accent-color:var(--warn)}
+.sin-marked{border-color:var(--warn)!important;background:rgba(255,111,155,.12)}
+.sin-marked .name,.sin-marked .meta{color:#ff9fbe}
 .name{color:var(--fg);font-weight:700}
 .meta,.hint{color:var(--fg2);font-size:13px}
 label{display:block;margin-bottom:6px}
