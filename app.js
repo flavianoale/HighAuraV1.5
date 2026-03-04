@@ -556,6 +556,71 @@ function rollingRisk(days=3){
   return {hardDef,lowSleep,days,isChronic:(hardDef>=2 || lowSleep>=2)};
 }
 
+function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.08)',unit='',decimals=0}={}){
+  const vals=(points||[]).map(p=>Number(p.v)||0);
+  if(!vals.length) return '';
+  const min=Math.min(...vals);
+  const max=Math.max(...vals);
+  const padX=20,padY=20;
+  const iw=w-padX*2, ih=h-padY*2;
+  const y=(v)=>padY + (max===min?ih/2:((max-v)/(max-min))*ih);
+  const x=(i)=>padX + (i/(Math.max(1,vals.length-1)))*iw;
+  const pts=points.map((p,i)=>`${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const last=points.at(-1);
+  const labels=points.map((p,i)=>`<text x='${x(i).toFixed(1)}' y='${h-4}' text-anchor='middle' fill='#9adfbe' font-size='10'>${p.label}</text>`).join('');
+  return `<svg viewBox='0 0 ${w} ${h}' class='trend-chart' role='img' aria-label='Gráfico de projeção'>
+    <rect x='1' y='1' width='${w-2}' height='${h-2}' rx='12' fill='${bg}' stroke='rgba(0,255,140,.35)'/>
+    <polyline fill='none' stroke='${color}' stroke-width='3' points='${pts}'/>
+    ${points.map((p,i)=>`<circle cx='${x(i).toFixed(1)}' cy='${y(p.v).toFixed(1)}' r='3.6' fill='${color}'/>`).join('')}
+    <text x='${w-12}' y='18' text-anchor='end' fill='${color}' font-size='12'>${(Number(last.v)||0).toFixed(decimals)}${unit}</text>
+    ${labels}
+  </svg>`;
+}
+
+function estimateTestosteroneProjection(t){
+  const baseline=Math.max(250,Math.min(1400,Number(S.hormonal?.baselineTotalT)||800));
+  const room={
+    sleep:((100-t.components.sleepScore)/100)*0.12,
+    bodyfat:((100-t.components.bodyfatScore)/100)*0.1,
+    stress:((100-t.components.stressScore)/100)*0.08,
+    micronutrients:((100-t.components.microScore)/100)*0.07,
+    fatAndChol:((100-((t.components.fatScore+t.components.cholScore)/2))/100)*0.05,
+    trainingLoad:((100-t.components.loadScore)/100)*0.05,
+    energyDeficit:((100-t.components.deficitScore)/100)*0.05
+  };
+  const estimatedGainPct=Math.max(0, Object.values(room).reduce((a,b)=>a+b,0)*0.7);
+  const capPct=baseline>=750?0.16:0.3;
+  const target=Math.min(1100, baseline*(1+Math.min(capPct,estimatedGainPct)));
+  const steps=[0,1,2,3].map(m=>{
+    const adapt=[0,0.55,0.82,1][m];
+    return {label:m===0?'Hoje':`M${m}`,v:baseline + (target-baseline)*adapt};
+  });
+  const certainty=Math.round(Math.max(35,Math.min(85,55 + (t.score-60)*0.35)));
+  return {baseline,target,steps,certainty,room};
+}
+
+function estimateShapeProjection(d,tp){
+  const targets=calcTargetsAuto();
+  const weightNow=targets.signals.shape.weightAvg7||targets.signals.shape.weightNow||S.targets.weightKg||90;
+  const bfNow=Math.max(4,Math.min(45,d.p7.bf));
+  const lbmNow=weightNow*(1-bfNow/100);
+  const sessions=(S.training.history||[]).length;
+  const tier=sessions<70?'iniciante':sessions<220?'intermediário':'avançado';
+  const baseRate=tier==='iniciante'?0.009:tier==='intermediário'?0.006:0.0035; // % do peso/mês
+  const readiness=(d.muscleLevel*0.45 + d.t.score*0.3 + d.consistency*0.25)/100;
+  const testosteroneBoost=((tp.target-tp.baseline)/Math.max(1,tp.baseline))*0.3;
+  const monthlyLeanGain=Math.max(0.08,weightNow*baseRate*(0.55+readiness*0.8+testosteroneBoost));
+  const monthlyFatDelta=Math.max(0.15,weightNow*((S.targets?.goal==='cutting'?0.007:0.003)*(0.7+readiness*0.4)));
+  const months=[0,1,2,3].map(m=>{
+    const lbm=lbmNow + monthlyLeanGain*m;
+    const fatMass=Math.max(weightNow*bfNow/100 - monthlyFatDelta*m, weightNow*0.08);
+    const weight=lbm+fatMass;
+    const bf=(fatMass/Math.max(1,weight))*100;
+    return {label:m===0?'Hoje':`M${m}`,lbm,bf,weight,muscleGain:m===0?0:monthlyLeanGain};
+  });
+  return {tier,monthlyLeanGain,monthlyFatDelta,months};
+}
+
 function testosteroneEngine(){
   const {d,h,targets,totals,micro}=syncMetabolicSystems();
   const mBy=(k)=>micro.find(x=>x.k===k)||{pct:0,val:0};
@@ -659,7 +724,11 @@ function shapeAvatarSVG(v){
 }
 function viewShape(){
   const d=shapeIntelligence();
+  const tProj=estimateTestosteroneProjection(d.t);
+  const sProj=estimateShapeProjection(d,tProj);
   const p=d.sh.pollock7;
+  const shapeLine=sProj.months.map((m)=>({label:m.label,v:m.weight}));
+  const bfLine=sProj.months.map((m)=>({label:m.label,v:m.bf}));
   view.innerHTML=`
   <div class='card'><div class='kpi'><div><h2>SHAPE INTELIGENTE</h2><div class='small'>DIETA ↔ TREINO ↔ TESTO ↔ RECUPERAÇÃO</div></div><span class='badge'>Score ${d.shapeScore}/100</span></div><div class='progress'><div style='width:${d.shapeScore}%'></div></div><div class='hint'>Status atual: ${d.status} • Nível muscular ${d.muscleLevel}/100</div></div>
   <div class='card'><div class='grid'>
@@ -672,6 +741,12 @@ function viewShape(){
       <div class='item'><div><div class='name'>Qualidade nutricional</div><div class='meta'>Entradas alimentares e fadiga</div></div><span class='badge'>${d.nutrQuality}</span></div>
     </div>
   </div></div>
+  <div class='card'><h2>Projeção do shape (1-3 meses)</h2>
+    <div class='small'>Potencial de ganho magro estimado: <b>${sProj.monthlyLeanGain.toFixed(2)} kg/mês</b> • redução de gordura estimada: ${sProj.monthlyFatDelta.toFixed(2)} kg/mês • nível ${sProj.tier}.</div>
+    <div class='trend-wrap'>${lineChartSVG(shapeLine,{unit:'kg',decimals:1,color:'#00ff8c'})}</div>
+    <div class='trend-wrap'>${lineChartSVG(bfLine,{unit:'%',decimals:1,color:'#5fb4ff',bg:'rgba(95,180,255,.08)'})}</div>
+    <div class='hint'>Modelo fisiológico simplificado para naturais: combina consistência, estímulo, recuperação, BF e ambiente hormonal (estimativa, não diagnóstico).</div>
+  </div>
   <div class='card'><h2>Pollock 7 dobras (Jackson & Pollock)</h2>
     <div class='grid'>
       <div class='g6'><label>Sexo biológico</label><select id='shapeSex'><option value='male'>Masculino</option><option value='female'>Feminino</option></select></div>
@@ -719,12 +794,30 @@ function viewShape(){
 function viewTestosterona(){
   const h=ensureHormonalToday();
   const t=testosteroneEngine();
+  const proj=estimateTestosteroneProjection(t);
   const critical=['zinco','magnesio','vitD'];
   const microCritical=t.micro.filter(x=>critical.includes(x.k));
   const status=t.score>=80?'✅ Ambiente hormonal forte':t.score>=60?'⚠ Preservação parcial':'❌ Risco hormonal';
+  const chart=lineChartSVG(proj.steps,{unit:' ng/dL',decimals:0,color:'#00ff8c'});
+  const factorOrder=Object.entries(proj.room).sort((a,b)=>b[1]-a[1]);
   view.innerHTML=`
   <div class='card'><div class='kpi'><div><h2>TESTOSTERONA NATURAL</h2><div class='small'>Integração DIETA + TREINO + SONO + ROTINA</div></div><span class='badge'>Score ${t.score}/100</span></div><div class='progress'><div style='width:${t.score}%'></div></div><div class='hint'>${status}</div></div>
+  <div class='card'><h2>Estimativa personalizada (base científica)</h2>
+    <div class='grid'>
+      <div class='g6'><label>Testosterona total atual (ng/dL)</label><input id='baseTInput' type='number' min='250' max='1400' value='${Math.round(proj.baseline)}'></div>
+      <div class='g6'><div class='item'><div><div class='name'>Potencial natural estimado</div><div class='meta'>janela de 3 meses com otimização de hábitos</div></div><span class='badge'>${Math.round(proj.target)} ng/dL</span></div><div class='hint'>Confiança estimada do modelo: ${proj.certainty}%.</div></div>
+    </div>
+    <div class='trend-wrap'>${chart}</div>
+    <div class='small'>Com baseline alto (ex.: 800 ng/dL mesmo sob estresse), o espaço fisiológico tende a ser menor; foco principal vira manutenção alta + melhora de performance/recuperação.</div>
+  </div>
   <div class='card'><h2>Monitoramento endocrinológico</h2><div class='small'>Sono: ${h.sleepHours}h • qualidade ${h.sleepQuality}% • BF ${t.bf}% • gordura dieta ${t.totals.g}g</div><div class='small'>Micros críticos: Zinco ${Math.round((microCritical.find(x=>x.k==='zinco')||{pct:0}).pct)}% • Magnésio ${Math.round((microCritical.find(x=>x.k==='magnesio')||{pct:0}).pct)}% • Vit D ${Math.round((microCritical.find(x=>x.k==='vitD')||{pct:0}).pct)}%</div><div class='small'>Colesterol dieta: ${t.totals.chol}mg • Treino: volume ${t.treino.volume} • intensidade ${Math.round(t.treino.intensity*100)}% • déficit ${t.deficitPct}%</div></div>
+  <div class='card'><h2>Fatores que mais movem sua testosterona (prioridade)</h2><div class='list'>${factorOrder.map(([k,v])=>`<div class='item'><div><div class='name'>${({sleep:'Sono',bodyfat:'Composição corporal (BF)',stress:'Estresse/ansiedade',micronutrients:'Micronutrientes (Zn/Mg/VitD)',fatAndChol:'Gorduras + colesterol dieta',trainingLoad:'Carga de treino/recuperação',energyDeficit:'Déficit calórico'}[k])}</div><div class='meta'>impacto potencial relativo</div></div><span class='badge'>${Math.round(v*100)}%</span></div>`).join('')}</div></div>
+  <div class='card'><h2>Faixas de efeito com suporte em estudos</h2><div class='list'>
+    <div class='item'><div><div class='name'>Sono</div><div class='meta'>Restrição de sono reduz testosterona; normalizar 7h30–8h30 ajuda a recuperar níveis.</div></div><span class='badge'>~5–15%</span></div>
+    <div class='item'><div><div class='name'>BF e composição corporal</div><div class='meta'>Excesso de gordura piora ambiente androgênico; recomposição melhora eixo hormonal.</div></div><span class='badge'>~5–20%</span></div>
+    <div class='item'><div><div class='name'>Treino e recuperação</div><div class='meta'>Força/hipertrofia com volume recuperável sustenta testosterona melhor que excesso crônico.</div></div><span class='badge'>~3–10%</span></div>
+    <div class='item'><div><div class='name'>Energia/micronutrientes</div><div class='meta'>Déficit agressivo e baixa ingestão de zinco/magnésio/vit D podem derrubar score hormonal.</div></div><span class='badge'>~3–12%</span></div>
+  </div><div class='hint'>Faixas populacionais para orientação prática (não substitui exame/laboratório).</div></div>
   <div class='card'><h2>Detecção automática</h2><div class='list'>${(t.flags.length?t.flags:['Sem alertas críticos']).map(f=>`<div class='item'><div class='name'>${f}</div></div>`).join('')}</div></div>
   <div class='card'><h2>Ajustes automáticos (evidência: ISSN/Helms/Schoenfeld/Hackney)</h2><div class='list'>${t.suggestions.map(s=>`<div class='item'><div class='meta'>${s}</div></div>`).join('')}</div></div>
   <div class='card'><h2>Integração com Cutting</h2><div class='small'>Objetivo: preservar testosterona durante perda de gordura e manter performance/massa magra.</div><div class='small'>Se score < 60 por 3 dias: priorizar recovery + ajustar déficit + revisar volume.</div></div>
@@ -739,6 +832,7 @@ function viewTestosterona(){
     if(sh>0) h.sleepHours=sh; if(sq>=0) h.sleepQuality=Math.max(0,Math.min(100,sq)); if(st>=0) h.stress=Math.max(0,Math.min(100,st)); if(sm>=0) h.sunMin=sm; if(rc>=0) h.recovery=Math.max(0,Math.min(100,rc));
     saveState(); render();
   };
+  $('#baseTInput').onchange=(e)=>{ S.hormonal.baselineTotalT=Math.max(250,Math.min(1400,Number(e.target.value)||800)); saveState(); render(); };
   $('#btnHormonalApply').onclick=()=>{
     const d=ensureDietToday();
     if(t.deficitPct>25) d.mode='cutting';
