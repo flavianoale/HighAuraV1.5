@@ -556,7 +556,7 @@ function rollingRisk(days=3){
   return {hardDef,lowSleep,days,isChronic:(hardDef>=2 || lowSleep>=2)};
 }
 
-function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.08)',unit='',decimals=0}={}){
+function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.08)',unit='',decimals=0,showValues=false}={}){
   const vals=(points||[]).map(p=>Number(p.v)||0);
   if(!vals.length) return '';
   const min=Math.min(...vals);
@@ -568,11 +568,15 @@ function lineChartSVG(points,{w=560,h=180,color='#00ff8c',bg='rgba(0,255,140,0.0
   const pts=points.map((p,i)=>`${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const last=points.at(-1);
   const labels=points.map((p,i)=>`<text x='${x(i).toFixed(1)}' y='${h-4}' text-anchor='middle' fill='#9adfbe' font-size='10'>${p.label}</text>`).join('');
+  const yTicks=[0,25,50,75,100].map(v=>`<text x='6' y='${(y(v)).toFixed(1)}' fill='rgba(182,231,208,.65)' font-size='9'>${v}</text><line x1='18' y1='${(y(v)).toFixed(1)}' x2='${(w-18)}' y2='${(y(v)).toFixed(1)}' stroke='rgba(182,231,208,.08)'/>`).join('');
   return `<svg viewBox='0 0 ${w} ${h}' class='trend-chart' role='img' aria-label='Gráfico de projeção'>
     <rect x='1' y='1' width='${w-2}' height='${h-2}' rx='12' fill='${bg}' stroke='rgba(0,255,140,.35)'/>
+    ${yTicks}
     <polyline fill='none' stroke='${color}' stroke-width='3' points='${pts}'/>
     ${points.map((p,i)=>`<circle cx='${x(i).toFixed(1)}' cy='${y(p.v).toFixed(1)}' r='3.6' fill='${color}'/>`).join('')}
+    ${showValues?points.map((p,i)=>`<text x='${x(i).toFixed(1)}' y='${Math.max(12,y(p.v)-8).toFixed(1)}' text-anchor='middle' fill='${color}' font-size='10'>${(Number(p.v)||0).toFixed(decimals)}</text>`).join(''):''}
     <text x='${w-12}' y='18' text-anchor='end' fill='${color}' font-size='12'>${(Number(last.v)||0).toFixed(decimals)}${unit}</text>
+    <text x='${w-12}' y='32' text-anchor='end' fill='rgba(182,231,208,.75)' font-size='10'>escala 0-100</text>
     ${labels}
   </svg>`;
 }
@@ -585,6 +589,7 @@ function barChartSVG(items,{w=560,h=220}={}){
   const slot=(w-padX*2)/vals.length;
   return `<svg viewBox='0 0 ${w} ${h}' class='trend-chart' role='img' aria-label='Comparação por áreas'>
     <rect x='1' y='1' width='${w-2}' height='${h-2}' rx='12' fill='rgba(90,110,255,0.06)' stroke='rgba(90,110,255,0.35)'/>
+    <text x='${w-12}' y='16' text-anchor='end' fill='rgba(182,231,208,.75)' font-size='10'>escala 0-100</text>
     ${items.map((p,i)=>{
       const x=padX+i*slot+slot*0.18;
       const bw=slot*0.64;
@@ -735,6 +740,26 @@ function viewMyStats(){
     'Para ser respeitado: consistência, competência e serviço. Reputação vem de evidência repetida no tempo.'
   ];
 
+  const scoreMeaning=[
+    {range:'0-39',meaning:'Crítico: área travada, precisa intervenção imediata.'},
+    {range:'40-59',meaning:'Baixo: progresso inconsistente.'},
+    {range:'60-79',meaning:'Bom: evolução real, mas com gaps.'},
+    {range:'80-100',meaning:'Elite: execução forte e consistente.'}
+  ];
+
+  const areaExplain=[
+    {n:'Shape',m:'Score 0-100 baseado no BF estimado (Pollock) e estado físico atual.'},
+    {n:'Hormonal',m:'Combina sono, qualidade do sono, estresse e recuperação do dia.'},
+    {n:'Treino',m:'Volume/frequência diária convertidos para score (0-100).'},
+    {n:'Estudo',m:'Minutos de estudo por dia em relação à meta de 120min.'},
+    {n:'Agronomia/Projetos',m:'Minutos de execução em campo/projetos por dia.'},
+    {n:'Espiritual',m:'Protocolo matinal/noturno + leitura bíblica diária.'},
+    {n:'Filosofia/Disciplina',m:'Foco + energia + humor do diário, em escala comportamental.'},
+    {n:'Social',m:'Interações sociais diárias convertidas para score.'},
+    {n:'Respeito',m:'Composto de social + foco + consistência espiritual.'},
+    {n:'Financeiro',m:'Eficiência do gasto diário (menos gasto desnecessário = score maior).'}
+  ];
+
   const chartDefs=[
     {k:'shape',title:'Shape (principal)',color:'#00ff8c',bg:'rgba(0,255,140,.08)'},
     {k:'hormonal',title:'Hormonal',color:'#7ad7ff',bg:'rgba(122,215,255,.08)'},
@@ -756,12 +781,14 @@ function viewMyStats(){
       <div class='g6'><div class='item'><div><div class='name'>Respeito social</div><div class='meta'>Presença + reputação</div></div><span class='badge'>${respeito}</span></div></div>
     </div>
   </div>
-  <div class='card'><h2>Status geral por área (radar)</h2><div class='radar-wrap'>${radarChartSVG(areaItems.slice(0,8),{size:340})}</div></div>
-  <div class='card'><h2>Comparação detalhada de áreas</h2>${barChartSVG(areaItems,{w:640,h:250})}</div>
-  <div class='card'><h2>Evolução composta (10 áreas, 14 dias)</h2>${lineChartSVG(evolution,{color:'#7ad7ff',bg:'rgba(122,215,255,0.08)'})}</div>
+  <div class='card'><h2>Como ler os gráficos (importante)</h2><div class='list'>${scoreMeaning.map(x=>`<div class='item'><div><div class='name'>Faixa ${x.range}</div><div class='meta'>${x.meaning}</div></div><span class='badge'>0-100</span></div>`).join('')}</div><div class='hint'>Todos os gráficos usam escala de 0 a 100. Quanto maior, melhor. Eixo X = dias recentes.</div></div>
+  <div class='card'><h2>Status geral por área (radar)</h2><div class='hint'>Cada ponta é uma área da vida. Quanto mais perto da borda, melhor seu nível naquela área.</div><div class='radar-wrap'>${radarChartSVG(areaItems.slice(0,8),{size:340})}</div></div>
+  <div class='card'><h2>Comparação detalhada de áreas</h2><div class='hint'>Barras mostram seu score atual por área (0-100). Número em cima da barra = valor atual.</div>${barChartSVG(areaItems,{w:640,h:250})}</div>
+  <div class='card'><h2>Evolução composta (10 áreas, 14 dias)</h2><div class='hint'>Linha azul = média diária das 10 áreas. Serve para ver se sua vida como um todo está subindo ou caindo.</div>${lineChartSVG(evolution,{color:'#7ad7ff',bg:'rgba(122,215,255,0.08)',showValues:true})}</div>
   <div class='card'><h2>Evolução por área (14 dias) — destaque para Shape</h2><div class='grid'>
-    ${chartDefs.map(c=>`<div class='g6'><div class='item'><div><div class='name'>${c.title}</div><div class='meta'>Último score: ${areaTrends[c.k].at(-1)?.v||0}</div></div><span class='badge'>${c.k==='shape'?'PRIORIDADE':''}</span></div>${lineChartSVG(areaTrends[c.k],{color:c.color,bg:c.bg})}</div>`).join('')}
+    ${chartDefs.map(c=>`<div class='g6'><div class='item'><div><div class='name'>${c.title}</div><div class='meta'>Último score: ${areaTrends[c.k].at(-1)?.v||0} • 14d média: ${Math.round(avg(areaTrends[c.k].map(p=>p.v)))}</div></div><span class='badge'>${c.k==='shape'?'PRIORIDADE':''}</span></div>${lineChartSVG(areaTrends[c.k],{color:c.color,bg:c.bg,showValues:true})}</div>`).join('')}
   </div></div>
+  <div class='card'><h2>O que cada área mede</h2><div class='list'>${areaExplain.map(x=>`<div class='item'><div><div class='name'>${x.n}</div><div class='meta'>${x.m}</div></div><span class='badge'>MÉTRICA</span></div>`).join('')}</div></div>
   <div class='card'><h2>Forças atuais</h2><div class='list'>${top3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Ponto forte do seu projeto de vida</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
   <div class='card'><h2>Prioridades de melhoria</h2><div class='list'>${bottom3.map(x=>`<div class='item'><div><div class='name'>${x.label}</div><div class='meta'>Área com maior retorno de evolução</div></div><span class='badge'>${x.v}</span></div>`).join('')}</div></div>
   <div class='card'><h2>Guia científico para virar sua melhor versão</h2><div class='list'>${scienceTips.map((t,i)=>`<div class='item'><div><div class='name'>${i+1}. Protocolo</div><div class='meta'>${t}</div></div><span class='badge'>SCI</span></div>`).join('')}</div><div class='hint'>Foco: fisiculturista natural, agrônomo de excelência, homem de honra, santo e filósofo com base em disciplina diária.</div></div>`;
