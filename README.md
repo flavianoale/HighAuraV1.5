@@ -3,7 +3,7 @@
 Versão expandida e mais interativa, inspirada no app de referência (agora com interface de dopamina máxima):
 
 - HUD com missão por janela de horário, pressão inteligente, streak, rank e integridade.
-- 13 abas operacionais: HUD, Protocolo, Dieta, Treino, Estudo, Bíblia, Tarefas, Social, Projetos, Finanças, Diário, Relatórios e Config.
+- 14 abas operacionais: HUD, Protocolo, Dieta, Treino, Estudo, Bíblia, Tarefas, Social, Público, Projetos, Finanças, Diário, Relatórios e Config.
 - Timer de estudo, sistema de dieta com porções e travas, treino com registro de sets e progressão simples.
 - Treino programado completo (Casa e Academia) com runner de sessão e timers segundo a segundo para execução e descanso.
 - Mentor por áudio (TTS + bipes): início execução, início descanso, aviso de 10s restantes e fim de fase.
@@ -12,6 +12,8 @@ Versão expandida e mais interativa, inspirada no app de referência (agora com 
 - Config avançada (objetivo, macros automáticas, janelas do dia, strict mode, CRT, som, música e volume).
 - Música offline via IndexedDB (upload, play, stop e apagar).
 - Backup/restore JSON + reset total.
+- Aba Público: checklist de lançamento, simulação de preço e metas de conversão para preparar publicação/venda.
+- Hardening básico de segurança (sanitização de campos textuais e redução de uso de HTML dinâmico no HUD).
 
 ## Rodar
 ```bash

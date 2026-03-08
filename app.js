@@ -1,6 +1,6 @@
 /* ASCENSÃO OS PRO – offline single-file */
-const APP_VERSION = 5;
-const STORAGE_KEY = 'ascensao_os_state_v5';
+const APP_VERSION = 6;
+const STORAGE_KEY = 'ascensao_os_state_v6';
 const TOTAL_BIBLE_CHAPTERS = 1189;
 
 const RANKS = [
@@ -113,7 +113,7 @@ const TRAINING_PROGRAMS = {
 
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'TESTO',label:'Testosterona'},
-  {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
+  {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},{id:'PUBLICO',label:'Público'},
   {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
 
@@ -143,6 +143,13 @@ function defaultState(){
     tasks:{byDate:{}},
     social:{history:[]}, ops:{history:[]}, finance:{history:[]},
     diary:{history:[]}, streakLog:{},
+    publicLaunch:{
+      monthlyPrice:29,
+      yearlyPrice:290,
+      monthlyUsersTarget:200,
+      conversionPct:3,
+      checklist:{backup:true,terms:true,support:true,content:true}
+    },
     lastAction:null
   };
 }
@@ -161,9 +168,12 @@ const $ = (q)=>document.querySelector(q);
 const view = $('#view'); const tabs = $('#tabs'); const toast = $('#toast');
 const modal = $('#modal'); const modalTitle = $('#modalTitle'); const modalSub = $('#modalSub'); const modalBody = $('#modalBody');
 
-function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
+function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY) || localStorage.getItem('ascensao_os_state_v5'); if(!raw) return defaultState(); return migrate(JSON.parse(raw)); }catch{return defaultState();} }
 function migrate(st){ const d=defaultState(); return {...d,...st, theme:{...d.theme,...(st.theme||{})}, sounds:{...d.sounds,...(st.sounds||{})}, loading:{...d.loading,...(st.loading||{})}, windows:{...d.windows,...(st.windows||{})}, targets:{...d.targets,...(st.targets||{})}, rpg:{...d.rpg,...(st.rpg||{})}, bible:{...d.bible,...(st.bible||{})}, tasks:{...d.tasks,...(st.tasks||{})}, hormonal:{...d.hormonal,...(st.hormonal||{})}, training:{...d.training,...(st.training||{}), program:{...d.training.program,...(st.training?.program||{})}, anthro:{...d.training.anthro,...(st.training?.anthro||{})}} }; }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }
+
+function esc(str=''){ return String(str).replace(/[&<>'"]/g,(ch)=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch])); }
+function safeText(str='', max=140){ return String(str).replace(/\s+/g,' ').trim().slice(0,max); }
 
 function showToast(msg, ms=1500){ toast.textContent=msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
 function openModal(title, sub, bodyHtml){ modalTitle.textContent=title; modalSub.textContent=sub||''; modalBody.innerHTML=bodyHtml; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
@@ -302,7 +312,7 @@ function undoLastAction(){ const a=S.lastAction; if(!a) return showToast('Nada p
 }catch{ showToast('Falhou desfazer'); }}
 
 function applyTheme(){ document.body.classList.toggle('crt', !!S.theme.crt); }
-function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentWindow(); $('#missionLine').innerHTML=`MISSÃO DO MOMENTO: <b>${win.name}</b> • fecha em <b>${timeLeftInWindow(win)}</b>`; }
+function refreshHUD(){ $('#hudLevel').textContent=S.rpg.level; $('#hudXP').textContent=S.rpg.xp; $('#hudRank').textContent=S.rpg.rank; $('#hudInt').textContent=S.rpg.integrity; $('#hudStreak').textContent=S.rpg.streak; $('#hudCombo').textContent=S.rpg.combo||0; $('#phaseBadge').textContent=`D${campaignDay()} • v${APP_VERSION}`; const win=currentWindow(); $('#missionLine').textContent=`MISSÃO DO MOMENTO: ${win.name} • fecha em ${timeLeftInWindow(win)}`; }
 
 function playTabClickSound(){
   if(!S.sounds.enabled) return;
@@ -314,7 +324,7 @@ function playTabClickSound(){
   }
   beep(760,.03,.05);
 }
-function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; playTabClickSound(); render(); }; tabs.appendChild(b);} }
+function renderTabs(){ tabs.innerHTML=''; const win=currentWindow(); for(const t of TAB_DEFS){ const b=document.createElement('button'); b.className='tabbtn'+(t.id===activeTab?' active':''); b.textContent=t.label; b.onclick=()=>{ if(S.strictMode){ const allow=['CFG','REL','PUBLICO']; if(!(t.id===win.tab||allow.includes(t.id))){ adjustIntegrity(-2); beep(220,.08,.08); showToast('Modo estrito: volta pra missão'); activeTab=win.tab; return render(); }} activeTab=t.id; playTabClickSound(); render(); }; tabs.appendChild(b);} }
 
 function pressurePanelHTML(){ const win=currentWindow(), prog=todayProgress(); const risk=prog.done<=1?'ALTO':prog.done<=2?'MÉDIO':'BAIXO'; return `<div class="list"><div class="item"><div><div class="name">Risco</div><div class="meta">${risk} (${prog.done}/5 pilares)</div></div><span class="badge">${risk}</span></div><div class="item"><div><div class="name">Janela atual</div><div class="meta">${win.name} • ${timeLeftInWindow(win)}</div></div><span class="badge">AGORA</span></div><div class="item"><div><div class="name">Modo estrito</div><div class="meta">${S.strictMode?'ATIVO':'DESLIGADO'}</div></div><span class="badge">${S.strictMode?'ON':'OFF'}</span></div></div>`; }
 
@@ -914,8 +924,8 @@ function viewBiblia(){ const k=todayKey(), done=!!S.bibleLog[k], per=S.bible.per
   $('#btnBibleReset').onclick=()=>{S.bible.idx=0; S.bibleLog={}; S.bibleLogAdv={}; adjustIntegrity(-3); saveState(); render();};
 }
 
-function viewTasks(){ const k=todayKey(); const tasks=(S.tasks.byDate[k]||[]).sort((a,b)=>a.time.localeCompare(b.time)); view.innerHTML=`<div class='card'><h2>Tarefas com horário</h2><div class='grid'><div class='g6'><label>Título</label><input id='taskTitle' placeholder='Ex: Revisar genética'></div><div class='g6'><label>Horário</label><input id='taskTime' type='time'></div><div class='g6'><label>Categoria</label><select id='taskCat'><option>Estudo</option><option>Treino</option><option>Espiritual</option><option>Projeto</option><option>Social</option><option>Financeiro</option></select></div><div class='g6'><label>Duração (min)</label><select id='taskDur'><option>15</option><option>25</option><option>40</option><option>60</option><option>90</option></select></div><div class='g12'><button class='btn primary wide' id='btnTaskAdd'>ADICIONAR</button></div></div></div><div class='card'><h2>Lista de hoje</h2><div class='list'>${tasks.length?tasks.map((t,i)=>`<div class='item'><div><div class='name'>${t.time} • ${t.title}</div><div class='meta'>${t.cat} • ${t.dur}min</div></div><div class='row'><button class='btn' data-taskdone='${i}'>FEITO</button><button class='btn danger' data-taskdel='${i}'>APAGAR</button></div></div>`).join(''):'<div class="hint">Sem tarefas.</div>'}</div></div>`;
-  $('#btnTaskAdd').onclick=()=>{ const title=$('#taskTitle').value.trim(), time=$('#taskTime').value, cat=$('#taskCat').value, dur=Number($('#taskDur').value); if(!title||!time) return showToast('Título e horário'); if(!S.tasks.byDate[k]) S.tasks.byDate[k]=[]; const entry={title,time,cat,dur}; S.tasks.byDate[k].push(entry); setLastAction({type:'taskAdd',entry}); addXP(8,'ops'); saveState(); showToast('Tarefa adicionada'); render();};
+function viewTasks(){ const k=todayKey(); const tasks=(S.tasks.byDate[k]||[]).sort((a,b)=>a.time.localeCompare(b.time)); view.innerHTML=`<div class='card'><h2>Tarefas com horário</h2><div class='grid'><div class='g6'><label>Título</label><input id='taskTitle' placeholder='Ex: Revisar genética'></div><div class='g6'><label>Horário</label><input id='taskTime' type='time'></div><div class='g6'><label>Categoria</label><select id='taskCat'><option>Estudo</option><option>Treino</option><option>Espiritual</option><option>Projeto</option><option>Social</option><option>Financeiro</option></select></div><div class='g6'><label>Duração (min)</label><select id='taskDur'><option>15</option><option>25</option><option>40</option><option>60</option><option>90</option></select></div><div class='g12'><button class='btn primary wide' id='btnTaskAdd'>ADICIONAR</button></div></div></div><div class='card'><h2>Lista de hoje</h2><div class='list'>${tasks.length?tasks.map((t,i)=>`<div class='item'><div><div class='name'>${esc(t.time)} • ${esc(t.title)}</div><div class='meta'>${esc(t.cat)} • ${Number(t.dur)||0}min</div></div><div class='row'><button class='btn' data-taskdone='${i}'>FEITO</button><button class='btn danger' data-taskdel='${i}'>APAGAR</button></div></div>`).join(''):'<div class="hint">Sem tarefas.</div>'}</div></div>`;
+  $('#btnTaskAdd').onclick=()=>{ const title=safeText($('#taskTitle').value,80), time=$('#taskTime').value, cat=safeText($('#taskCat').value,24), dur=Number($('#taskDur').value); if(!title||!time) return showToast('Título e horário'); if(!S.tasks.byDate[k]) S.tasks.byDate[k]=[]; const entry={title,time,cat,dur:Math.max(5,Math.min(240,dur||15))}; S.tasks.byDate[k].push(entry); setLastAction({type:'taskAdd',entry}); addXP(8,'ops'); saveState(); showToast('Tarefa adicionada'); render();};
   view.querySelectorAll('[data-taskdel]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.taskdel); S.tasks.byDate[k].splice(i,1); saveState(); render(); });
   view.querySelectorAll('[data-taskdone]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.taskdone); const t=S.tasks.byDate[k][i]; if(!t) return; S.tasks.byDate[k].splice(i,1); addXP(20,'ops'); adjustIntegrity(+2); saveState(); showToast('Tarefa concluída'); render(); });
 }
@@ -935,15 +945,41 @@ function viewLog(){ const k=todayKey(), today=S.finance.history.filter(x=>x.date
 
 function scaleRow(label,key,val){ return `<div class='item'><div><div class='name'>${label}</div><div class='meta'>1–5</div></div><div class='row'>${[1,2,3,4,5].map(n=>`<button class='btn ${n===val?'primary':'ghost'}' data-key='${key}' data-val='${n}'>${n}</button>`).join('')}</div></div>`; }
 function viewDiario(){ const k=todayKey(); let d=S.diary.history.find(x=>x.date===k); if(!d){ d={date:k,energy:3,mood:3,anxiety:3,compulsion:3,porn:0,focus:3,note:''}; S.diary.history.push(d); saveState(); }
-  view.innerHTML=`<div class='card'><h2>Diário operacional</h2>${scaleRow('Energia','energy',d.energy)}${scaleRow('Humor','mood',d.mood)}${scaleRow('Ansiedade','anxiety',d.anxiety)}${scaleRow('Compulsão','compulsion',d.compulsion)}${scaleRow('Foco','focus',d.focus)}<div class='item'><div><div class='name'>Pornografia hoje?</div><div class='meta'>0 não • 1 sim</div></div><button class='btn ${d.porn?'danger':'primary'}' id='btnPorn'>${d.porn?'SIM':'NÃO'}</button></div><label>Nota curta</label><input id='diaryNote' value='${(d.note||'').replace(/'/g,'&#39;')}'><div class='row'><button class='btn primary' id='btnDiarySave'>SALVAR</button></div></div>`;
+  view.innerHTML=`<div class='card'><h2>Diário operacional</h2>${scaleRow('Energia','energy',d.energy)}${scaleRow('Humor','mood',d.mood)}${scaleRow('Ansiedade','anxiety',d.anxiety)}${scaleRow('Compulsão','compulsion',d.compulsion)}${scaleRow('Foco','focus',d.focus)}<div class='item'><div><div class='name'>Pornografia hoje?</div><div class='meta'>0 não • 1 sim</div></div><button class='btn ${d.porn?'danger':'primary'}' id='btnPorn'>${d.porn?'SIM':'NÃO'}</button></div><label>Nota curta</label><input id='diaryNote' value='${esc(d.note||'')}'><div class='row'><button class='btn primary' id='btnDiarySave'>SALVAR</button></div></div>`;
   view.querySelectorAll('button[data-key]').forEach(b=>b.onclick=()=>{ d[b.dataset.key]=Number(b.dataset.val); saveState(); render(); });
   $('#btnPorn').onclick=()=>{ d.porn=d.porn?0:1; d.porn?adjustIntegrity(-6):adjustIntegrity(+2); saveState(); render(); };
-  $('#btnDiarySave').onclick=()=>{ d.note=$('#diaryNote').value.slice(0,140); saveState(); addXP(6); showToast('Diário salvo'); };
+  $('#btnDiarySave').onclick=()=>{ d.note=safeText($('#diaryNote').value,140); saveState(); addXP(6); showToast('Diário salvo'); };
 }
 
 function buildDailyReport(k){ const prog=todayProgress(); const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0); const sets=S.training.history.filter(x=>x.date===k).length; const diet=sumDiet(ensureDietToday()); const rec=[]; if(study<25) rec.push('Estudo abaixo do mínimo'); if(sets<3) rec.push('Treino abaixo do mínimo'); if(!S.bibleLog[k]) rec.push('Bíblia pendente'); if(S.rpg.integrity<70) rec.push('Integridade baixa: priorize sono'); return [`ASCENSÃO OS – Relatório ${k}`,`Nível ${S.rpg.level} • XP ${S.rpg.xp} • Rank ${S.rpg.rank} • Integridade ${S.rpg.integrity}`,`Pilares ${prog.done}/5 (${prog.pct}%)`,`Estudo: ${study} min`,`Treino: ${sets} sets`,`Dieta: ${diet.kcal} kcal • P ${diet.p}`,'Recomendações:',...(rec.length?rec.map(x=>`- ${x}`):['- Você está no trilho.'])].join('\n'); }
 function downloadText(name,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),600); }
 function viewRel(){ const k=todayKey(), report=buildDailyReport(k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Relatório</div><div class='small'>Diário e exportável</div></div><button class='btn' id='btnCopy'>COPIAR</button></div><pre>${report}</pre><div class='row'><button class='btn' id='btnExportTXT'>EXPORTAR TXT</button><button class='btn' id='btnExportJSON'>EXPORTAR JSON</button></div></div>`; $('#btnCopy').onclick=async()=>{try{await navigator.clipboard.writeText(report); showToast('Copiado');}catch{showToast('Não consegui copiar')}}; $('#btnExportTXT').onclick=()=>downloadText(`ascensao-${k}.txt`,report); $('#btnExportJSON').onclick=()=>downloadText(`ascensao-backup-${k}.json`,JSON.stringify(S,null,2)); }
+
+
+function viewPublico(){
+  const p=S.publicLaunch||{monthlyPrice:29,yearlyPrice:290,monthlyUsersTarget:200,conversionPct:3,checklist:{backup:true,terms:true,support:true,content:true}};
+  const mrr=Math.round((Number(p.monthlyUsersTarget)||0)*(Number(p.monthlyPrice)||0));
+  const arr=Math.round(mrr*12);
+  const conv=Math.max(0,Math.min(100,Number(p.conversionPct)||0));
+  const readiness=[p.checklist?.backup,p.checklist?.terms,p.checklist?.support,p.checklist?.content].filter(Boolean).length;
+  const score=Math.round((readiness/4)*70 + Math.min(30,conv));
+  view.innerHTML=`<div class='card'><h2>Go-to-market (offline-first)</h2><div class='small'>Planejamento para publicar e vender depois dos testes offline.</div><div class='kpi'><div><div class='name'>Readiness</div><div class='big'>${score}%</div></div><div><div class='name'>MRR estimado</div><div class='big'>R$ ${mrr}</div></div><div><div class='name'>ARR estimado</div><div class='big'>R$ ${arr}</div></div></div></div>
+  <div class='card'><div class='grid'><div class='g6'><label>Preço mensal (R$)</label><input id='pubPriceMonth' type='number' min='5' max='999' value='${Number(p.monthlyPrice)||29}'></div><div class='g6'><label>Preço anual (R$)</label><input id='pubPriceYear' type='number' min='50' max='9999' value='${Number(p.yearlyPrice)||290}'></div><div class='g6'><label>Usuários alvo/mês</label><input id='pubUsers' type='number' min='1' max='200000' value='${Number(p.monthlyUsersTarget)||200}'></div><div class='g6'><label>Conversão esperada (%)</label><input id='pubConv' type='number' min='0' max='100' value='${conv}'></div></div></div>
+  <div class='card'><h2>Checklist público</h2><div class='list'>
+    <div class='item'><div><div class='name'>Backup & restore validado</div></div><button class='btn' data-pub='backup'>${p.checklist?.backup?'OK':'PENDENTE'}</button></div>
+    <div class='item'><div><div class='name'>Termos e privacidade</div></div><button class='btn' data-pub='terms'>${p.checklist?.terms?'OK':'PENDENTE'}</button></div>
+    <div class='item'><div><div class='name'>Canal de suporte (WhatsApp/email)</div></div><button class='btn' data-pub='support'>${p.checklist?.support?'OK':'PENDENTE'}</button></div>
+    <div class='item'><div><div class='name'>Conteúdo católico revisado</div></div><button class='btn' data-pub='content'>${p.checklist?.content?'OK':'PENDENTE'}</button></div>
+  </div><div class='row'><button class='btn primary' id='btnPublicSave'>Salvar plano</button></div></div>`;
+  view.querySelectorAll('[data-pub]').forEach((b)=>b.onclick=()=>{ const k=b.dataset.pub; p.checklist={...(p.checklist||{}), [k]:!p.checklist?.[k]}; S.publicLaunch=p; saveState(); render(); });
+  $('#btnPublicSave').onclick=()=>{
+    p.monthlyPrice=Math.max(5,Math.min(999,Number($('#pubPriceMonth').value)||29));
+    p.yearlyPrice=Math.max(50,Math.min(9999,Number($('#pubPriceYear').value)||290));
+    p.monthlyUsersTarget=Math.max(1,Math.min(200000,Number($('#pubUsers').value)||200));
+    p.conversionPct=Math.max(0,Math.min(100,Number($('#pubConv').value)||3));
+    S.publicLaunch=p; saveState(); showToast('Plano público salvo'); render();
+  };
+}
 
 function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class='grid'><div class='g6'><label>Objetivo</label><select id='cfgGoal'><option value='cutting'>Cutting</option><option value='maint'>Manutenção</option><option value='bulk'>Lean bulk</option></select></div><div class='g6'><label>Peso (kg)</label><input id='cfgW' type='number' min='40' max='200' value='${S.targets.weightKg}'></div><div class='g6'><label>BF (%)</label><input id='cfgBF' type='number' min='5' max='45' value='${S.targets.bfPct}'></div><div class='g6'><label>Atividade</label><select id='cfgAct'><option value='baixa'>Baixa</option><option value='moderada'>Moderada</option><option value='alta'>Alta</option></select></div><div class='g6'><label>Modo estrito</label><select id='cfgStrict'><option value='0'>Desligado</option><option value='1'>Ativo</option></select></div><div class='g6'><label>CRT</label><select id='cfgCRT'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Sons</label><select id='cfgSound'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música do loading</label><select id='cfgMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Música pós-loading</label><select id='cfgPostMusic'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Modo atleta natural</label><select id='cfgNatural'><option value='1'>Ativo</option><option value='0'>Desligado</option></select></div><div class='g6'><label>Fêmur</label><select id='cfgFemur'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Braço</label><select id='cfgBraco'><option value='curto'>Curto</option><option value='medio'>Médio</option><option value='longo'>Longo</option></select></div><div class='g6'><label>Duração por imagem (seg)</label><input id='cfgLoadSec' type='number' min='1' max='10' value='${S.loading?.imageSeconds||3}'></div><div class='g12'><label>Volume</label><input id='cfgVol' type='range' min='0' max='1' step='0.05' value='${S.sounds.volume||0.6}'></div></div><hr><div class='grid'>${Object.entries(S.windows).map(([k,v])=>`<div class='g6'><label>${k}</label><input id='w_${k}' type='time' value='${v}'></div>`).join('')}</div><button class='btn primary wide' id='btnCfgSave'>SALVAR CONFIG</button></div>
   <div class='card'><h2>Áudios</h2><div class='hint'>Upload da música do loading, música de fundo pós-loading, som de clique no START e som de clique nas abas.</div><label>Música do loading</label><input id='musicFile' type='file' accept='audio/*'><label>Música de fundo pós-loading</label><input id='postMusicFile' type='file' accept='audio/*'><label>Som do botão START</label><input id='startSfxFile' type='file' accept='audio/*'><label>Som de clique das abas</label><input id='tabSfxFile' type='file' accept='audio/*'><div class='row'><button class='btn' id='btnMusicPlay'>PLAY LOADING</button><button class='btn' id='btnMusicStop'>STOP LOADING</button><button class='btn danger' id='btnMusicDelete'>APAGAR MÚSICA LOADING</button></div><div class='row'><button class='btn' id='btnPostMusicPlay'>PLAY PÓS-LOADING</button><button class='btn' id='btnPostMusicStop'>STOP PÓS-LOADING</button><button class='btn danger' id='btnPostMusicDelete'>APAGAR MÚSICA PÓS-LOADING</button></div><div class='row'><button class='btn danger' id='btnStartSfxDelete'>APAGAR SOM START</button><button class='btn danger' id='btnTabSfxDelete'>APAGAR SOM ABAS</button></div></div>
@@ -969,14 +1005,14 @@ function viewCfg(){ view.innerHTML=`<div class='card'><h2>Config</h2><div class=
   $('#btnExport').onclick=()=>downloadText(`ascensao-backup-${todayKey()}.json`,JSON.stringify(S,null,2));
   $('#btnImport').onclick=()=>$('#importFile').click();
   $('#importFile').onchange=async(e)=>{ const f=e.target.files?.[0]; if(!f) return; try{ S=migrate(JSON.parse(await f.text())); saveState(); applyTheme(); await loadStartupAssets(); showToast('Importado'); render(); }catch{ showToast('JSON inválido'); } };
-  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); await idb.del('music'); await idb.del('post_loading_music'); await idb.del('start_sfx'); await idb.del('tab_click_sfx'); for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
+  $('#btnWipe').onclick=()=>{ openModal('RESET TOTAL','Apaga tudo',`<button class='btn danger' id='confirmWipe'>CONFIRMAR</button>`); setTimeout(()=>{ $('#confirmWipe').onclick=async()=>{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem('ascensao_os_state_v5'); await idb.del('music'); await idb.del('post_loading_music'); await idb.del('start_sfx'); await idb.del('tab_click_sfx'); for(let i=1;i<=5;i++) await idb.del(`loading_image_${i}`); S=defaultState(); saveState(); closeModal(); location.reload(); }; },0); };
   $('#btnForceRefresh').onclick=forceRefreshApp;
 }
 
 function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' && S.strictMode) beep(140,.09,.08);
   switch(activeTab){
     case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'TESTO': return viewTestosterona();
-    case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
+    case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial(); case 'PUBLICO': return viewPublico();
     case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
   }
@@ -1004,4 +1040,4 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
   refreshHUD();
 })();
 
-setInterval(()=>{ refreshHUD(); if((S.rpg.combo||0)>0){ S.rpg.combo=Math.max(0,S.rpg.combo-1); saveState(); } if(S.strictMode){ const win=currentWindow(); if(activeTab!==win.tab && !['CFG','REL'].includes(activeTab)){ activeTab=win.tab; render(); }} }, 30000);
+setInterval(()=>{ refreshHUD(); if((S.rpg.combo||0)>0){ S.rpg.combo=Math.max(0,S.rpg.combo-1); saveState(); } if(S.strictMode){ const win=currentWindow(); if(activeTab!==win.tab && !['CFG','REL','PUBLICO'].includes(activeTab)){ activeTab=win.tab; render(); }} }, 30000);
