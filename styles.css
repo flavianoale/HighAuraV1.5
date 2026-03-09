@@ -68,3 +68,8 @@ body{background:radial-gradient(1200px 600px at 10% -10%, #0b2b1b 0%, transparen
 .loading-bar-wrap{position:relative;z-index:2;width:min(42vw,320px);height:12px;border:1px solid rgba(255,255,255,.9);margin:0 0 22px 18px;background:rgba(255,255,255,.08)}
 .loading-bar-fill{height:100%;width:0%;background:#fff;transition:width .06s linear}
 .loading-text{position:relative;z-index:2;color:#fff;letter-spacing:.22em;font-size:12px;margin:0 0 40px 18px;text-shadow:0 0 8px rgba(0,0,0,.85)}
+
+.jarvis-log{max-height:320px;overflow:auto;border:1px solid #0a5134;border-radius:12px;padding:8px;background:#020d09;margin:10px 0}
+.jarvis-msg{padding:8px 10px;border-radius:10px;margin-bottom:8px;border:1px solid #0a5134}
+.jarvis-msg.bot{background:#041911}
+.jarvis-msg.user{background:#0a1728;border-color:#1f4d8f}

@@ -114,7 +114,7 @@ const TRAINING_PROGRAMS = {
 const TAB_DEFS = [
   {id:'DASH',label:'HUD'},{id:'PROTO',label:'Protocolo'},{id:'DIETA',label:'Dieta'},{id:'TREINO',label:'Treino'},{id:'TESTO',label:'Testosterona'},
   {id:'ESTUDO',label:'Estudo'},{id:'BIBLIA',label:'Bíblia'},{id:'TASKS',label:'Tarefas'},{id:'SOCIAL',label:'Social'},
-  {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
+  {id:'OPS',label:'Projetos'},{id:'LOG',label:'Finanças'},{id:'DIARIO',label:'Diário'},{id:'AI',label:'JARVIS'},{id:'REL',label:'Relatórios'},{id:'CFG',label:'Config'}
 ];
 
 const idb = {
@@ -142,7 +142,7 @@ function defaultState(){
     proto:{itemsMorning:['Arrumar cama','Água','Skincare','Alongamento','Oração','Planejar dia'], itemsNight:['Higiene','Skincare','Exame rápido','Roupas','Oração','Dormir no horário'], history:[]},
     tasks:{byDate:{}},
     social:{history:[]}, ops:{history:[]}, finance:{history:[]},
-    diary:{history:[]}, streakLog:{},
+    diary:{history:[]}, ai:{history:[]}, streakLog:{},
     lastAction:null
   };
 }
@@ -941,6 +941,45 @@ function viewDiario(){ const k=todayKey(); let d=S.diary.history.find(x=>x.date=
   $('#btnDiarySave').onclick=()=>{ d.note=$('#diaryNote').value.slice(0,140); saveState(); addXP(6); showToast('Diário salvo'); };
 }
 
+function ensureAiState(){
+  if(!S.ai) S.ai={history:[]};
+  if(!Array.isArray(S.ai.history)) S.ai.history=[];
+}
+function addAiMessage(role,text){
+  ensureAiState();
+  S.ai.history.push({role,text,at:new Date().toISOString()});
+  S.ai.history=S.ai.history.slice(-24);
+  saveState();
+}
+function jarvisReply(raw){
+  const msg=(raw||'').toLowerCase().trim();
+  const prog=todayProgress();
+  const win=currentWindow();
+  if(!msg) return 'Estou online. Diga um objetivo e eu monto a execução agora.';
+  if(msg.includes('status')||msg.includes('resumo')||msg.includes('como estou')) return `Status do dia: ${prog.done}/5 pilares concluídos (${prog.pct}%). Missão ativa: ${win.name}, restando ${timeLeftInWindow(win)}.`;
+  if(msg.includes('treino')) return 'Protocolo de treino: 1) aquece 8 min, 2) execute 3-5 exercícios principais com técnica limpa, 3) finalize com alongamento. Se completar 3 séries registradas, você já ativa progresso do pilar TREINO.';
+  if(msg.includes('dieta')||msg.includes('comer')) return 'Comando nutricional: priorize proteína em todas as refeições, carbos ao redor do treino e hidratação alta. Se estiver em dúvida, registre uma refeição simples no módulo DIETA agora.';
+  if(msg.includes('estudo')) return 'Plano de foco: bloco de 25 minutos + 5 de pausa por 3 ciclos. Meta mínima operacional hoje: 25 minutos válidos.';
+  if(msg.includes('bíblia')||msg.includes('biblia')) return `Diretriz espiritual: leia ${S.bible.perDay} capítulos hoje e registre no módulo Bíblia para fechar o pilar.`;
+  if(msg.includes('motiv')||msg.includes('desanimo')||msg.includes('cansado')) return 'Sem drama, só execução. Faça a próxima ação de 2 minutos agora, depois continue em ritmo de combate.';
+  return `Entendido. Foco total em ${win.name}. Minha sugestão: concluir agora o próximo pilar pendente e voltar aqui para novo comando.`;
+}
+function viewAI(){
+  ensureAiState();
+  if(!S.ai.history.length){
+    addAiMessage('jarvis','JARVIS online. Senhor, pronto para estratégia, foco e execução tática do seu dia.');
+  }
+  const history=S.ai.history.map((m)=>`<div class='jarvis-msg ${m.role==='user'?'user':'bot'}'><div class='meta'>${m.role==='user'?'VOCÊ':'JARVIS'}</div><div>${m.text}</div></div>`).join('');
+  view.innerHTML=`<div class='card'><div class='kpi'><div><h2>JARVIS // Assistente de Combate</h2><div class='small'>IA tática local inspirada no estilo Tony Stark</div></div><button class='btn ghost' id='btnAiClear'>Limpar</button></div><div class='jarvis-log'>${history}</div><div class='row'><button class='btn' data-aiquick='status'>Status</button><button class='btn' data-aiquick='motivacao'>Motivação</button><button class='btn' data-aiquick='proxima missao'>Próxima missão</button></div><div class='row'><input id='aiInput' placeholder='Ex: Jarvis, me dá um plano de treino para agora'><button class='btn primary' id='btnAiSend'>Enviar</button></div></div>`;
+  const send=()=>{ const input=$('#aiInput'); const text=(input.value||'').trim(); if(!text) return; addAiMessage('user',text); const res=jarvisReply(text); addAiMessage('jarvis',res); addXP(5,'study'); input.value=''; render(); };
+  $('#btnAiSend').onclick=send;
+  $('#aiInput').addEventListener('keydown',(e)=>{ if(e.key==='Enter') send(); });
+  view.querySelectorAll('[data-aiquick]').forEach((b)=>b.onclick=()=>{ addAiMessage('user',b.dataset.aiquick); addAiMessage('jarvis',jarvisReply(b.dataset.aiquick)); render(); });
+  $('#btnAiClear').onclick=()=>{ S.ai.history=[]; saveState(); render(); };
+  const log=view.querySelector('.jarvis-log');
+  if(log) log.scrollTop=log.scrollHeight;
+}
+
 function buildDailyReport(k){ const prog=todayProgress(); const study=S.study.history.filter(x=>x.date===k).reduce((a,b)=>a+b.minutes,0); const sets=S.training.history.filter(x=>x.date===k).length; const diet=sumDiet(ensureDietToday()); const rec=[]; if(study<25) rec.push('Estudo abaixo do mínimo'); if(sets<3) rec.push('Treino abaixo do mínimo'); if(!S.bibleLog[k]) rec.push('Bíblia pendente'); if(S.rpg.integrity<70) rec.push('Integridade baixa: priorize sono'); return [`ASCENSÃO OS – Relatório ${k}`,`Nível ${S.rpg.level} • XP ${S.rpg.xp} • Rank ${S.rpg.rank} • Integridade ${S.rpg.integrity}`,`Pilares ${prog.done}/5 (${prog.pct}%)`,`Estudo: ${study} min`,`Treino: ${sets} sets`,`Dieta: ${diet.kcal} kcal • P ${diet.p}`,'Recomendações:',...(rec.length?rec.map(x=>`- ${x}`):['- Você está no trilho.'])].join('\n'); }
 function downloadText(name,text){ const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),600); }
 function viewRel(){ const k=todayKey(), report=buildDailyReport(k); view.innerHTML=`<div class='card'><div class='kpi'><div><div class='big'>Relatório</div><div class='small'>Diário e exportável</div></div><button class='btn' id='btnCopy'>COPIAR</button></div><pre>${report}</pre><div class='row'><button class='btn' id='btnExportTXT'>EXPORTAR TXT</button><button class='btn' id='btnExportJSON'>EXPORTAR JSON</button></div></div>`; $('#btnCopy').onclick=async()=>{try{await navigator.clipboard.writeText(report); showToast('Copiado');}catch{showToast('Não consegui copiar')}}; $('#btnExportTXT').onclick=()=>downloadText(`ascensao-${k}.txt`,report); $('#btnExportJSON').onclick=()=>downloadText(`ascensao-backup-${k}.json`,JSON.stringify(S,null,2)); }
@@ -977,7 +1016,7 @@ function render(){ refreshHUD(); renderTabs(); if(currentWindow().id==='sleep' &
   switch(activeTab){
     case 'DASH': return viewHUD(); case 'PROTO': return viewProtocolo(); case 'DIETA': return viewDieta(); case 'TREINO': return viewTreino(); case 'TESTO': return viewTestosterona();
     case 'ESTUDO': return viewEstudo(); case 'BIBLIA': return viewBiblia(); case 'TASKS': return viewTasks(); case 'SOCIAL': return viewSocial();
-    case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
+    case 'OPS': return viewOps(); case 'LOG': return viewLog(); case 'DIARIO': return viewDiario(); case 'AI': return viewAI(); case 'REL': return viewRel(); case 'CFG': return viewCfg();
     default: return viewHUD();
   }
 }
